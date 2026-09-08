@@ -89,6 +89,9 @@ export async function fetchTrendingReports(limit = 5) {
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+  // Convert to ISO string
+  const sevenDaysAgoISO = sevenDaysAgo.toISOString();
+
   const rows = await db
     .select({
       id: reports.id,
@@ -100,7 +103,8 @@ export async function fetchTrendingReports(limit = 5) {
     .from(reports)
     .leftJoin(upvotes, eq(upvotes.reportId, reports.id))
     .leftJoin(comments, and(eq(comments.reportId, reports.id), eq(comments.isHidden, false)))
-    .where(and(eq(reports.isHidden, false), sql`${reports.createdAt} >= ${sevenDaysAgo}`))
+    // Use ISO string with timestamp cast
+    .where(and(eq(reports.isHidden, false), sql`${reports.createdAt} >= ${sevenDaysAgoISO}::timestamp`))
     .groupBy(reports.id)
     .orderBy(desc(sql`count(distinct ${upvotes.id}) + count(distinct ${comments.id})`))
     .limit(limit);
