@@ -228,7 +228,24 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
           <div className="form-step">
             <div className="form-group">
               <label>Location</label>
-              <PinPickerMap latitude={latitude} longitude={longitude} onChange={(lat, lng) => { setLatitude(lat); setLongitude(lng); }} />
+              <PinPickerMap 
+                latitude={latitude} 
+                longitude={longitude} 
+                onChange={(lat, lng) => { 
+                  setLatitude(lat); 
+                  setLongitude(lng); 
+                }}
+                onLocationChange={(location) => {
+                  // Auto-fill city, state, zip, county from geocode
+                  if (location.city) setCity(location.city);
+                  if (location.stateProvince) setStateProvince(location.stateProvince);
+                  if (location.postalCode) setPostalCode(location.postalCode);
+                  if (location.county) setAddressLine(prev => 
+                    // Optionally add county to address line if not already set
+                    prev || `County: ${location.county}`
+                  );
+                }}
+              />
               <div className="location-picker-row">
                 <input type="number" step="any" value={latitude} onChange={(e) => setLatitude(parseFloat(e.target.value))} />
                 <input type="number" step="any" value={longitude} onChange={(e) => setLongitude(parseFloat(e.target.value))} />
@@ -242,15 +259,15 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
             <div className="form-row">
               <div className="form-group">
                 <label>City</label>
-                <input value={city} onChange={(e) => setCity(e.target.value)} />
+                <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Auto-filled from map" />
               </div>
               <div className="form-group">
                 <label>State</label>
-                <input value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} placeholder="DC / VA / MD" />
+                <input value={stateProvince} onChange={(e) => setStateProvince(e.target.value)} placeholder="Auto-filled from map" />
               </div>
               <div className="form-group">
                 <label>ZIP</label>
-                <input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+                <input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} placeholder="Auto-filled from map" />
               </div>
               <div className="form-group">
                 <label>Country</label>
@@ -261,6 +278,12 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
                 </select>
               </div>
             </div>
+            {/* Show a small indicator when location is auto-filled */}
+            {(city || stateProvince || postalCode) && (
+              <div style={{ fontSize: '12px', color: '#2e7d32', marginTop: '4px' }}>
+                📍 Location auto-filled from map
+              </div>
+            )}
           </div>
         )}
 
