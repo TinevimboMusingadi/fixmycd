@@ -13,7 +13,7 @@ export function InAppMediaRecorder({ onRecordingComplete, onCancel }: MediaRecor
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  
+
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -154,7 +154,13 @@ export function InAppMediaRecorder({ onRecordingComplete, onCancel }: MediaRecor
     return (
       <div className="media-recorder-fallback">
         <p>In-app recording is not supported on this browser. Please use the file picker instead.</p>
-        <button onClick={onCancel} className="btn-secondary">Close</button>
+        <button 
+          onClick={onCancel} 
+          className="btn-secondary"
+          style={{ color: '#333', background: '#f0f0f0', border: '1px solid #ccc', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}
+        >
+          Close
+        </button>
       </div>
     );
   }
@@ -190,7 +196,11 @@ export function InAppMediaRecorder({ onRecordingComplete, onCancel }: MediaRecor
           <button onClick={() => startRecording('audio')} className="btn-primary">
             🎙️ Record Audio
           </button>
-          <button onClick={onCancel} className="btn-secondary" style={{ marginTop: '8px' }}>
+          <button 
+            onClick={onCancel} 
+            className="btn-secondary" 
+            style={{ marginTop: '8px', color: '#333', background: '#f0f0f0', border: '1px solid #ccc', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}
+          >
             Cancel
           </button>
         </div>
@@ -225,6 +235,19 @@ export function InAppMediaRecorder({ onRecordingComplete, onCancel }: MediaRecor
             </div>
           )}
 
+          {/* Recording indicator */}
+          {!preview && mode !== 'photo' && isRecording && (
+            <div style={{
+              textAlign: 'center',
+              marginTop: '12px',
+              color: '#dc2626',
+              fontSize: '14px',
+              fontWeight: 600,
+            }}>
+              ● Recording...
+            </div>
+          )}
+
           <div className="recorder-controls" style={{
             display: 'flex',
             gap: '8px',
@@ -232,26 +255,54 @@ export function InAppMediaRecorder({ onRecordingComplete, onCancel }: MediaRecor
             justifyContent: 'center',
             flexWrap: 'wrap',
           }}>
+            {/* Photo: Capture button */}
             {!preview && mode === 'photo' && (
-              <button onClick={takePhoto} className="btn-primary">📸 Capture</button>
-            )}
-            {!preview && mode !== 'photo' && !isRecording && (
-              <button onClick={() => startRecording(mode)} className="btn-danger">
-                ⏺ Start Recording
+              <button 
+                onClick={takePhoto} 
+                className="btn-primary"
+                style={{ background: '#8b5cf6', color: 'white', padding: '10px 20px', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+              >
+                📸 Capture
               </button>
             )}
+
+            {/* Video/Audio: Stop button while recording */}
             {!preview && mode !== 'photo' && isRecording && (
-              <button onClick={stopRecording} className="btn-danger">
+              <button 
+                onClick={stopRecording} 
+                className="btn-danger"
+                style={{ background: '#dc2626', color: 'white', padding: '10px 20px', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+              >
                 ⏹ Stop Recording
               </button>
             )}
+
+            {/* Preview: Use/Retake */}
             {preview && (
               <>
-                <button onClick={confirm} className="btn-primary">✅ Use This</button>
-                <button onClick={reset} className="btn-secondary">🔄 Retake</button>
+                <button 
+                  onClick={confirm} 
+                  className="btn-primary"
+                  style={{ background: '#8b5cf6', color: 'white', padding: '10px 20px', borderRadius: '6px', border: 'none', cursor: 'pointer' }}
+                >
+                  ✅ Use This
+                </button>
+                <button 
+                  onClick={reset} 
+                  className="btn-secondary"
+                  style={{ color: '#333', background: '#f0f0f0', border: '1px solid #ccc', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}
+                >
+                  🔄 Retake
+                </button>
               </>
             )}
-            <button onClick={() => { reset(); onCancel(); }} className="btn-secondary">
+
+            {/* Cancel always available */}
+            <button 
+              onClick={() => { reset(); onCancel(); }} 
+              className="btn-secondary"
+              style={{ color: '#333', background: '#f0f0f0', border: '1px solid #ccc', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}
+            >
               Cancel
             </button>
           </div>
