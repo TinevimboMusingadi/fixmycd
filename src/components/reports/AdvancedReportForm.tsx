@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
+import exifr from 'exifr';
+import { InAppMediaRecorder } from './InAppMediaRecorder';
 import {
   INFRASTRUCTURE_TAXONOMY,
   FAILURE_TYPES,
@@ -23,6 +25,7 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -54,6 +57,7 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
   const [responsibleAgency, setResponsibleAgency] = useState('');
   const [assetName, setAssetName] = useState('');
   const [occurredAt, setOccurredAt] = useState(new Date().toISOString().slice(0, 16));
+  const [gpsDetected, setGpsDetected] = useState(false);
 
   const types = infrastructureClass ? INFRASTRUCTURE_TAXONOMY[infrastructureClass] || [] : [];
   const steps = mode === 'quick' ? ['Issue', 'Location', 'Evidence'] : ['Issue', 'Location', 'Impact', 'Evidence', 'Review'];
@@ -71,14 +75,75 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
     return data.url as string;
   };
 
+  const readPhotoGPS = async (file: File): Promise<{ lat: number; lng: number } | null> => {
+    try {
+      const gps = await exifr.gps(file);
+      if (!gps) return null;
+      return { lat: gps.latitude, lng: gps.longitude };
+    } catch (error) {
+      console.warn('Could not read GPS from photo:', error);
+      return null;
+    }
+  };
+
   const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     setImagePreview(URL.createObjectURL(file));
-    const url = await uploadFile(file);
-    if (url) setImageUrl(url);
-    setUploading(false);
+    try {
+      const url = await uploadFile(file);
+      if (url) setImageUrl(url);
+
+      const gps = await readPhotoGPS(file);
+      if (gps) {
+        try {
+          const response = await fetch(`/api/geocode?lat=${gps.lat}&lng=${gps.lng}`);
+          const data = await response.json();
+          if (response.ok) {
+            setLatitude(gps.lat);
+            setLongitude(gps.lng);
+            if (data.city) setCity(data.city);
+            if (data.stateProvince) setStateProvince(data.stateProvince);
+            if (data.postalCode) setPostalCode(data.postalCode);
+            if (data.county) setAddressLine(prev => prev || `County: ${data.county}`);
+            setGpsDetected(true);
+          }
+        } catch (geoError) {
+          console.warn('Could not geocode GPS location:', geoError);
+        }
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRecordingComplete = async (blob: Blob, type: 'photo' | 'video' | 'audio') => {
+    setShowRecorder(false);
+    const extension = type === 'photo' ? 'jpg' : type === 'video' ? 'webm' : 'webm';
+    const file = new File([blob], `recorded-${type}-${Date.now()}.${extension}`, {
+      type: blob.type,
+    });
+    setUploading(true);
+    try {
+      const url = await uploadFile(file);
+      if (url) {
+        if (type === 'photo') {
+          setImageUrl(url);
+          setImagePreview(URL.createObjectURL(blob));
+        } else if (type === 'video') {
+          setVideoUrl(url);
+        } else {
+          setAudioUrl(url);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to upload recording:', error);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const detectLocation = () => {
@@ -228,22 +293,18 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
           <div className="form-step">
             <div className="form-group">
               <label>Location</label>
-              <PinPickerMap 
-                latitude={latitude} 
-                longitude={longitude} 
-                onChange={(lat, lng) => { 
-                  setLatitude(lat); 
-                  setLongitude(lng); 
+              <PinPickerMap
+                latitude={latitude}
+                longitude={longitude}
+                onChange={(lat, lng) => {
+                  setLatitude(lat);
+                  setLongitude(lng);
                 }}
                 onLocationChange={(location) => {
-                  // Auto-fill city, state, zip, county from geocode
                   if (location.city) setCity(location.city);
                   if (location.stateProvince) setStateProvince(location.stateProvince);
                   if (location.postalCode) setPostalCode(location.postalCode);
-                  if (location.county) setAddressLine(prev => 
-                    // Optionally add county to address line if not already set
-                    prev || `County: ${location.county}`
-                  );
+                  if (location.county) setAddressLine(prev => prev || `County: ${location.county}`);
                 }}
               />
               <div className="location-picker-row">
@@ -278,7 +339,6 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
                 </select>
               </div>
             </div>
-            {/* Show a small indicator when location is auto-filled */}
             {(city || stateProvince || postalCode) && (
               <div style={{ fontSize: '12px', color: '#2e7d32', marginTop: '4px' }}>
                 📍 Location auto-filled from map
@@ -329,8 +389,48 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
 
         {((mode === 'quick' && step === 2) || (mode === 'advanced' && step === 3)) && (
           <div className="form-step">
+            <div className="recording-buttons" style={{ marginBottom: '16px' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowRecorder(true)}
+              >
+                🎥 Record Media In-App
+              </button>
+            </div>
+
+            {showRecorder && (
+              <div className="recorder-modal" style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0,0,0,0.8)',
+                zIndex: 2000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px',
+              }}>
+                <div style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  maxWidth: '500px',
+                  width: '100%',
+                  maxHeight: '90vh',
+                  overflow: 'auto',
+                }}>
+                  <InAppMediaRecorder
+                    onRecordingComplete={handleRecordingComplete}
+                    onCancel={() => setShowRecorder(false)}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
-              <label>Photo</label>
+              <label>Or Upload Photo</label>
               <input type="file" accept="image/*" onChange={handleImage} />
               {imagePreview && <img src={imagePreview} alt="Preview" className="upload-preview" />}
             </div>
@@ -379,6 +479,11 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
                   </div>
                 </div>
               </>
+            )}
+            {gpsDetected && (
+              <div style={{ fontSize: '12px', color: '#2e7d32', marginTop: '4px' }}>
+                📍 GPS location detected and auto-filled
+              </div>
             )}
           </div>
         )}
