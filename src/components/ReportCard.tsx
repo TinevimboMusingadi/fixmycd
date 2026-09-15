@@ -55,11 +55,17 @@ function severityLabel(severity: number | null) {
 
 interface ReportCardProps {
   report: ReportListItem;
+  isAuthenticated?: boolean;
   onUpvoteToggle?: (reportId: string, upvoted: boolean) => void;
   style?: React.CSSProperties;
 }
 
-export default function ReportCard({ report, onUpvoteToggle, style }: ReportCardProps) {
+export default function ReportCard({
+  report,
+  isAuthenticated = false,
+  onUpvoteToggle,
+  style,
+}: ReportCardProps) {
   const [bump, setBump] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const sev = severityLabel(report.severity);
@@ -67,6 +73,11 @@ export default function ReportCard({ report, onUpvoteToggle, style }: ReportCard
   const handleUpvote = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!isAuthenticated) {
+      // Optional: redirect to login or show a prompt
+      window.location.href = `/login?redirect=/dashboard`;
+      return;
+    }
     const method = report.userHasUpvoted ? 'DELETE' : 'POST';
     const res = await fetch(`/api/reports/${report.id}/upvote`, { method });
     if (res.ok && onUpvoteToggle) {
@@ -135,15 +146,17 @@ export default function ReportCard({ report, onUpvoteToggle, style }: ReportCard
         )}
 
         <div className="report-actions">
-          <button
-            type="button"
-            className={`action-btn action-upvote ${report.userHasUpvoted ? 'action-btn-active' : ''} ${bump ? 'action-bump' : ''}`}
-            onClick={handleUpvote}
-            aria-label="Upvote"
-          >
-            <UpvoteIcon filled={report.userHasUpvoted} />
-            <span>{report.upvoteCount}</span>
-          </button>
+          {isAuthenticated && (
+            <button
+              type="button"
+              className={`action-btn action-upvote ${report.userHasUpvoted ? 'action-btn-active' : ''} ${bump ? 'action-bump' : ''}`}
+              onClick={handleUpvote}
+              aria-label="Upvote"
+            >
+              <UpvoteIcon filled={report.userHasUpvoted} />
+              <span>{report.upvoteCount}</span>
+            </button>
+          )}
           <Link href={`/dashboard/reports/${report.id}`} className="action-btn action-comment">
             <CommentIcon />
             <span>{report.commentCount}</span>
