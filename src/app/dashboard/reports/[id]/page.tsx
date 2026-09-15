@@ -51,19 +51,33 @@ export default function ReportDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isPosting, setIsPosting] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
+    // Check auth state
+    fetch('/api/auth/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setIsAuthenticated(!!data?.authenticated))
+      .catch(() => setIsAuthenticated(false));
+
+    // Fetch report and comments
     Promise.all([
       fetch(`/api/reports/${id}`).then((r) => r.json()),
       fetch(`/api/reports/${id}/comments`).then((r) => r.json()),
-    ]).then(([reportData, commentsData]) => {
-      if (!reportData.error) setReport(reportData);
-      if (Array.isArray(commentsData)) setComments(commentsData);
-    }).finally(() => setLoading(false));
+    ])
+      .then(([reportData, commentsData]) => {
+        if (!reportData.error) setReport(reportData);
+        if (Array.isArray(commentsData)) setComments(commentsData);
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   const toggleUpvote = async () => {
     if (!report) return;
+    if (!isAuthenticated) {
+      window.location.href = `/login?redirect=/dashboard/reports/${id}`;
+      return;
+    }
     const method = report.userHasUpvoted ? 'DELETE' : 'POST';
     const res = await fetch(`/api/reports/${id}/upvote`, { method });
     if (res.ok) {
@@ -77,6 +91,10 @@ export default function ReportDetailPage() {
 
   const submitComment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthenticated) {
+      window.location.href = `/login?redirect=/dashboard/reports/${id}`;
+      return;
+    }
     if (!newComment.trim()) {
       setCommentError('Comment cannot be empty');
       return;
@@ -114,6 +132,10 @@ export default function ReportDetailPage() {
   };
 
   const flagReport = async () => {
+    if (!isAuthenticated) {
+      window.location.href = `/login?redirect=/dashboard/reports/${id}`;
+      return;
+    }
     const reason = prompt('Why are you flagging this report?');
     if (!reason) return;
     await fetch(`/api/reports/${id}/flag`, {
@@ -144,9 +166,13 @@ export default function ReportDetailPage() {
   return (
     <div className="report-detail">
       <div className="feed-header">
-        <Link href="/dashboard" className="back-link">&larr; Back to feed</Link>
+        <Link href="/dashboard" className="back-link">
+          &larr; Back to feed
+        </Link>
         <h2>{report.title}</h2>
-        <p className="report-ref">Ref: {report.referenceNo} · {report.status.replace('_', ' ')}</p>
+        <p className="report-ref">
+          Ref: {report.referenceNo} · {report.status.replace('_', ' ')}
+        </p>
       </div>
 
       <article className="report-card report-detail-card">
@@ -157,7 +183,10 @@ export default function ReportDetailPage() {
           <div className="report-user-info">
             <span className="display-name">{report.userDisplayName}</span>
             <span className="handle">
-              @{report.userEmail ? report.userEmail.split('@')[0] : (report.userDisplayName || 'user')}
+              @
+              {report.userEmail
+                ? report.userEmail.split('@')[0]
+                : report.userDisplayName || 'user'}
             </span>
           </div>
         </div>
@@ -169,7 +198,9 @@ export default function ReportDetailPage() {
             </p>
           )}
           <p className="report-desc">{report.description}</p>
-          {report.aiSummary && <p className="ai-summary">AI Summary: {report.aiSummary}</p>}
+          {report.aiSummary && (
+            <p className="ai-summary">AI Summary: {report.aiSummary}</p>
+          )}
 
           {report.imageUrl && (
             <img src={report.imageUrl} alt={report.title} className="report-image" />
@@ -184,13 +215,29 @@ export default function ReportDetailPage() {
           <MiniMap latitude={report.latitude} longitude={report.longitude} />
 
           <div className="report-actions">
-            <button
-              className={`action-btn ${report.userHasUpvoted ? 'action-btn-active' : ''}`}
-              onClick={toggleUpvote}
-            >
-              Upvote ({report.upvoteCount})
-            </button>
-            <button className="action-btn" onClick={flagReport}>Flag</button>
+            {isAuthenticated ? (
+              <button
+                className={`action-btn ${
+                  report.userHasUpvoted ? 'action-btn-active' : ''
+                }`}
+                onClick={toggleUpvote}
+              >
+                Upvote ({report.upvoteCount})
+              </button>
+            ) : (
+              <span className="action-btn action-disabled" title="Sign in to upvote">
+                Upvote ({report.upvoteCount})
+              </span>
+            )}
+            {isAuthenticated ? (
+              <button className="action-btn" onClick={flagReport}>
+                Flag
+              </button>
+            ) : (
+              <Link href={`/login?redirect=/dashboard/reports/${id}`} className="action-btn">
+                Sign in to interact
+              </Link>
+            )}
           </div>
           <ShareSheet
             urlPath={`/r/${report.id}`}
@@ -206,32 +253,41 @@ export default function ReportDetailPage() {
       <section className="comments-section">
         <h3>Comments ({report.commentCount})</h3>
 
-        <form onSubmit={submitComment} className="comment-form">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Add a comment..."
-            maxLength={1000}
-            disabled={isPosting}
-            aria-label="Comment text"
-            rows={3}
-          />
-          <div className="comment-form-footer">
-            <span className="comment-char-count">{newComment.length}/1000</span>
-            <button
-              type="submit"
-              className="btn-primary btn-sm"
-              disabled={isPosting || !newComment.trim()}
-            >
-              {isPosting ? 'Posting...' : 'Post Comment'}
-            </button>
-          </div>
-          {commentError && (
-            <div className="comment-error" role="alert">
-              ⚠️ {commentError}
+        {isAuthenticated ? (
+          <form onSubmit={submitComment} className="comment-form">
+            <textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              placeholder="Add a comment..."
+              maxLength={1000}
+              disabled={isPosting}
+              aria-label="Comment text"
+              rows={3}
+            />
+            <div className="comment-form-footer">
+              <span className="comment-char-count">{newComment.length}/1000</span>
+              <button
+                type="submit"
+                className="btn-primary btn-sm"
+                disabled={isPosting || !newComment.trim()}
+              >
+                {isPosting ? 'Posting...' : 'Post Comment'}
+              </button>
             </div>
-          )}
-        </form>
+            {commentError && (
+              <div className="comment-error" role="alert">
+                ⚠️ {commentError}
+              </div>
+            )}
+          </form>
+        ) : (
+          <div className="comment-signin-prompt">
+            <p>
+              <Link href={`/login?redirect=/dashboard/reports/${id}`}>Sign in</Link> to
+              leave a comment.
+            </p>
+          </div>
+        )}
 
         {comments.length === 0 ? (
           <div className="comment-empty">
@@ -245,8 +301,12 @@ export default function ReportDetailPage() {
                   <div className="comment-avatar">
                     {c.userDisplayName?.charAt(0)?.toUpperCase() || '?'}
                   </div>
-                  <span className="comment-name">{c.userDisplayName || 'Anonymous'}</span>
-                  <span className="comment-time">{formatRelativeTime(c.createdAt)}</span>
+                  <span className="comment-name">
+                    {c.userDisplayName || 'Anonymous'}
+                  </span>
+                  <span className="comment-time">
+                    {formatRelativeTime(c.createdAt)}
+                  </span>
                 </div>
                 <div className="comment-body">{c.body}</div>
               </div>

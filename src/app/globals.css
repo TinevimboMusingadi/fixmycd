@@ -465,6 +465,20 @@ button {
   margin-top: 8px;
   padding: 4px 8px;
 }
+.readonly-notice {
+  padding: 12px;
+  margin-top: 12px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.readonly-notice p {
+  margin-bottom: 8px;
+}
 @keyframes fadeSlide {
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
