@@ -5,17 +5,21 @@ export function proxy(request: NextRequest) {
   const session = request.cookies.get('session_user_id');
   const path = request.nextUrl.pathname;
 
-  if (!session?.value && path.startsWith('/dashboard')) {
+  // Pages that require authentication
+  const protectedPages = [
+    '/dashboard/notifications',
+    '/dashboard/profile',
+    '/dashboard/review',
+    '/dashboard/admin',
+  ];
+
+  const isProtected = protectedPages.some((page) => path.startsWith(page));
+
+  // If no session and trying to access a protected page → redirect to login
+  if (!session?.value && isProtected) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', path);
     return NextResponse.redirect(loginUrl);
-  }
-
-  // Soft gate: admin pages require a session (role checked in page/API).
-  // Full role check happens server-side in requireAdmin() because middleware
-  // cannot easily query Postgres without edge-compatible auth tokens.
-  if (path.startsWith('/dashboard/admin') && !session?.value) {
-    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   return NextResponse.next();

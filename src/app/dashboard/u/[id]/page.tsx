@@ -9,7 +9,7 @@ export default function UserProfilePage() {
   const id = params.id as string;
   const [profile, setProfile] = useState<{
     displayName: string;
-    email: string;
+    email: string | null;
     bio: string | null;
     reports: { id: string; title: string; status: string; createdAt: string }[];
   } | null>(null);
@@ -43,7 +43,7 @@ export default function UserProfilePage() {
       <div className="feed-header"><h2>{profile.displayName}</h2></div>
       <div className="profile-card">
         <div className="report-avatar profile-avatar">{profile.displayName?.charAt(0) || 'U'}</div>
-        <p className="handle">@{profile.email.split('@')[0]}</p>
+        <p className="handle">  @{profile.email ? profile.email.split('@')[0] : profile.displayName || 'user'}</p>
         {profile.bio && <p className="profile-bio">{profile.bio}</p>}
         <button className="btn-secondary btn-sm" onClick={toggleFollow}>
           {following ? 'Unfollow' : 'Follow'}
