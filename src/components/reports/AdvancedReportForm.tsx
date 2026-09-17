@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
+import exifr from 'exifr';
 import {
   INFRASTRUCTURE_TAXONOMY,
   FAILURE_TYPES,
@@ -71,14 +72,50 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
     return data.url as string;
   };
 
+  const readPhotoGPS = async (file: File): Promise<{ lat: number; lng: number } | null> => {
+  try {
+    const gps = await exifr.gps(file);
+    if (!gps) return null;
+    return { lat: gps.latitude, lng: gps.longitude };
+  } catch (error) {
+    console.warn('Could not read GPS from photo:', error);
+    return null;
+  }
+};
+
   const handleImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
     setUploading(true);
     setImagePreview(URL.createObjectURL(file));
-    const url = await uploadFile(file);
-    if (url) setImageUrl(url);
-    setUploading(false);
+    
+    try {
+      const url = await uploadFile(file);
+      if (url) setImageUrl(url);
+      
+      const gps = await readPhotoGPS(file);
+      if (gps) {
+        try {
+          const response = await fetch(`/api/geocode?lat=${gps.lat}&lng=${gps.lng}`);
+          const data = await response.json();
+          if (response.ok) {
+            setLatitude(gps.lat);
+            setLongitude(gps.lng);
+            if (data.city) setCity(data.city);
+            if (data.stateProvince) setStateProvince(data.stateProvince);
+            if (data.postalCode) setPostalCode(data.postalCode);
+            if (data.county) setAddressLine(prev => prev || `County: ${data.county}`);
+          }
+        } catch (geoError) {
+          console.warn('Could not geocode GPS location:', geoError);
+        }
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const detectLocation = () => {
@@ -333,6 +370,11 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
               <label>Photo</label>
               <input type="file" accept="image/*" onChange={handleImage} />
               {imagePreview && <img src={imagePreview} alt="Preview" className="upload-preview" />}
+              {imagePreview && (
+                <div style={{ fontSize: '12px', color: '#2e7d32', marginTop: '4px' }}>
+                  📍 GPS location detected and auto-filled
+                </div>
+              )}
             </div>
             {mode === 'advanced' && (
               <>
