@@ -9,14 +9,27 @@ interface ReportFiltersProps {
     status: string;
     severity: string;
     keyword: string;
+    startDate: string;
+    endDate: string;
+    radiusKm: string;
   };
   onChange: (key: string, value: string) => void;
   onSaveSearch?: () => void;
 }
 
 export default function ReportFilters({ filters, onChange, onSaveSearch }: ReportFiltersProps) {
+  const clearDates = () => {
+    onChange('startDate', '');
+    onChange('endDate', '');
+  };
+
+  const clearRadius = () => {
+    onChange('radiusKm', '');
+  };
+
   return (
     <div className="report-filters">
+      {/* Search */}
       <div className="filter-search-wrap">
         <svg className="filter-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="8" />
@@ -30,27 +43,91 @@ export default function ReportFilters({ filters, onChange, onSaveSearch }: Repor
           className="filter-input"
         />
       </div>
-      <select value={filters.category} onChange={(e) => onChange('category', e.target.value)} className="filter-select">
+
+      {/* Category */}
+      <select
+        value={filters.category}
+        onChange={(e) => onChange('category', e.target.value)}
+        className="filter-select"
+      >
         <option value="">Category</option>
         {Object.keys(CATEGORIES).map((cat) => (
           <option key={cat} value={cat}>{cat}</option>
         ))}
       </select>
-      <select value={filters.status} onChange={(e) => onChange('status', e.target.value)} className="filter-select">
+
+      {/* Status */}
+      <select
+        value={filters.status}
+        onChange={(e) => onChange('status', e.target.value)}
+        className="filter-select"
+      >
         <option value="">Status</option>
         {REPORT_STATUSES.map((s) => (
           <option key={s} value={s}>{s.replace('_', ' ')}</option>
         ))}
       </select>
-      <select value={filters.severity} onChange={(e) => onChange('severity', e.target.value)} className="filter-select">
+
+      {/* Severity */}
+      <select
+        value={filters.severity}
+        onChange={(e) => onChange('severity', e.target.value)}
+        className="filter-select"
+      >
         <option value="">Severity</option>
         {[1, 2, 3, 4, 5].map((s) => (
           <option key={s} value={String(s)}>{s}</option>
         ))}
       </select>
+
+      {/* NEW: Date range */}
+      <div className="filter-date-group">
+        <label className="filter-label">
+          From
+          <input
+            type="date"
+            value={filters.startDate}
+            onChange={(e) => onChange('startDate', e.target.value)}
+            className="filter-input filter-input-date"
+          />
+        </label>
+        <label className="filter-label">
+          To
+          <input
+            type="date"
+            value={filters.endDate}
+            onChange={(e) => onChange('endDate', e.target.value)}
+            className="filter-input filter-input-date"
+          />
+        </label>
+        {(filters.startDate || filters.endDate) && (
+          <button type="button" className="filter-clear-inline" onClick={clearDates}>
+            ×
+          </button>
+        )}
+      </div>
+
+      {/*NEW: Radius */}
+      <div className="filter-radius-group">
+        <input
+          type="number"
+          min="1"
+          max="500"
+          placeholder="Within km"
+          value={filters.radiusKm}
+          onChange={(e) => onChange('radiusKm', e.target.value)}
+          className="filter-input filter-input-radius"
+        />
+        {filters.radiusKm && (
+          <button type="button" className="filter-clear-inline" onClick={clearRadius}>
+            ×
+          </button>
+        )}
+      </div>
+
       {onSaveSearch && (
         <button type="button" className="btn-secondary btn-sm" onClick={onSaveSearch}>
-          Save
+          Save search
         </button>
       )}
     </div>

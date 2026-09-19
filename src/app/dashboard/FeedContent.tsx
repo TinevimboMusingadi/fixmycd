@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import ReportCard from '../../components/ReportCard';
 import ReportFilters from '../../components/ReportFilters';
 import type { ReportListItem } from '../../lib/types';
@@ -39,8 +39,29 @@ function FeedSkeleton() {
   );
 }
 
+interface FiltersState {
+  category: string;
+  status: string;
+  severity: string;
+  keyword: string;
+  startDate: string;
+  endDate: string;
+  radiusKm: string;
+}
+
+const EMPTY_FILTERS: FiltersState = {
+  category: '',
+  status: '',
+  severity: '',
+  keyword: '',
+  startDate: '',
+  endDate: '',
+  radiusKm: '',
+};
+
 export default function DashboardFeed() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [reports, setReports] = useState<ReportListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -49,15 +70,27 @@ export default function DashboardFeed() {
   const [hasMore, setHasMore] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [filters, setFilters] = useState({
+  const [userCoords, setUserCoords] = useState({ latitude: -17.8292, longitude: 31.0522 });
+
+  const [filters, setFilters] = useState<FiltersState>({
     category: searchParams.get('category') || '',
     status: searchParams.get('status') || '',
     severity: searchParams.get('severity') || '',
     keyword: searchParams.get('keyword') || '',
+    startDate: searchParams.get('startDate') || '',
+    endDate: searchParams.get('endDate') || '',
+    radiusKm: searchParams.get('radiusKm') || '',
   });
-  const [userCoords, setUserCoords] = useState({ latitude: -17.8292, longitude: 31.0522 });
 
-  const activeFilterCount = [filters.category, filters.status, filters.severity, filters.keyword].filter(Boolean).length;
+  const activeFilterCount = [
+    filters.category,
+    filters.status,
+    filters.severity,
+    filters.keyword,
+    filters.startDate,
+    filters.endDate,
+    filters.radiusKm,
+  ].filter(Boolean).length;
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -74,32 +107,62 @@ export default function DashboardFeed() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const buildQuery = useCallback((currentOffset: number) => {
+  // Sync filters → URL
+  useEffect(() => {
     const params = new URLSearchParams();
     if (filters.category) params.set('category', filters.category);
     if (filters.status) params.set('status', filters.status);
     if (filters.severity) params.set('severity', filters.severity);
     if (filters.keyword) params.set('keyword', filters.keyword);
-    params.set('limit', '20');
-    params.set('offset', String(currentOffset));
-    return params.toString();
-  }, [filters]);
+    if (filters.startDate) params.set('startDate', filters.startDate);
+    if (filters.endDate) params.set('endDate', filters.endDate);
+    if (filters.radiusKm) params.set('radiusKm', filters.radiusKm);
 
-  const fetchReports = useCallback(async (currentOffset: number, append = false) => {
-    if (append) setLoadingMore(true);
-    else setLoading(true);
-    try {
-      const res = await fetch(`/api/reports?${buildQuery(currentOffset)}`);
-      if (res.ok) {
-        const data: ReportListItem[] = await res.json();
-        setReports((prev) => (append ? [...prev, ...data] : data));
-        setHasMore(data.length === 20);
+    const newUrl = params.toString()
+      ? `/dashboard?${params.toString()}`
+      : '/dashboard';
+    router.replace(newUrl, { scroll: false });
+  }, [filters, router]);
+
+  const buildQuery = useCallback(
+    (currentOffset: number) => {
+      const params = new URLSearchParams();
+      if (filters.category) params.set('category', filters.category);
+      if (filters.status) params.set('status', filters.status);
+      if (filters.severity) params.set('severity', filters.severity);
+      if (filters.keyword) params.set('keyword', filters.keyword);
+      if (filters.startDate) params.set('startDate', filters.startDate);
+      if (filters.endDate) params.set('endDate', filters.endDate);
+      if (filters.radiusKm) {
+        params.set('radiusLat', String(userCoords.latitude));
+        params.set('radiusLng', String(userCoords.longitude));
+        params.set('radiusKm', filters.radiusKm);
       }
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [buildQuery]);
+      params.set('limit', '20');
+      params.set('offset', String(currentOffset));
+      return params.toString();
+    },
+    [filters, userCoords]
+  );
+
+  const fetchReports = useCallback(
+    async (currentOffset: number, append = false) => {
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+      try {
+        const res = await fetch(`/api/reports?${buildQuery(currentOffset)}`);
+        if (res.ok) {
+          const data: ReportListItem[] = await res.json();
+          setReports((prev) => (append ? [...prev, ...data] : data));
+          setHasMore(data.length === 20);
+        }
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [buildQuery]
+  );
 
   useEffect(() => {
     setOffset(0);
@@ -110,7 +173,13 @@ export default function DashboardFeed() {
     feedType === 'global'
       ? reports
       : reports.filter(
-          (r) => getDistance(userCoords.latitude, userCoords.longitude, r.latitude, r.longitude) <= 2.5
+          (r) =>
+            getDistance(
+              userCoords.latitude,
+              userCoords.longitude,
+              r.latitude,
+              r.longitude
+            ) <= 2.5
         );
 
   const handleFilterChange = (key: string, value: string) => {
@@ -139,7 +208,7 @@ export default function DashboardFeed() {
   };
 
   const clearFilters = () => {
-    setFilters({ category: '', status: '', severity: '', keyword: '' });
+    setFilters(EMPTY_FILTERS);
   };
 
   const loadMore = () => {
@@ -177,7 +246,11 @@ export default function DashboardFeed() {
         </div>
         {showFilters && (
           <div className="feed-filters-panel">
-            <ReportFilters filters={filters} onChange={handleFilterChange} onSaveSearch={handleSaveSearch} />
+            <ReportFilters
+              filters={filters}
+              onChange={handleFilterChange}
+              onSaveSearch={handleSaveSearch}
+            />
             {activeFilterCount > 0 && (
               <button type="button" className="clear-filters-btn" onClick={clearFilters}>
                 Clear all
@@ -193,7 +266,9 @@ export default function DashboardFeed() {
         ) : filteredReports.length === 0 ? (
           <div className="feed-empty feed-empty-rich">
             <div className="feed-empty-icon">📍</div>
-            <h3>{feedType === 'local' ? 'Nothing nearby yet' : 'No matching reports'}</h3>
+            <h3>
+              {feedType === 'local' ? 'Nothing nearby yet' : 'No matching reports'}
+            </h3>
             <p>
               {feedType === 'local'
                 ? 'Try For you, or report an issue in your area.'
