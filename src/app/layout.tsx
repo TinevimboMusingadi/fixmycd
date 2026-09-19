@@ -1,14 +1,31 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import { PWARegister } from '@/components/PWARegister';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'FixMyDistrict',
   description: 'Report and track infrastructure failures in your district.',
   manifest: '/manifest.json',
+  applicationName: 'FixMyDistrict',
   appleWebApp: {
     capable: true,
     title: 'FixMyDistrict',
+    statusBarStyle: 'default',
   },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: '/logo.svg',
+    apple: '/logo.svg',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#8b5cf6',
 };
 
 export default function RootLayout({
@@ -20,6 +37,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         {children}
+        <PWARegister />
       </body>
     </html>
   );
