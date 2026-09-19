@@ -64,6 +64,7 @@ export const REPORT_STATUSES = [
   'duplicate',
   'in_progress',
   'resolved',
+  'not_an_issue',
 ] as const;
 
 export const GEOGRAPHIC_AREA_TYPES = [
