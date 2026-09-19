@@ -1,5 +1,6 @@
 /**
  * U.S. Census Geocoder helpers — https://geocoding.geo.census.gov/
+ * Also uses Nominatim (OpenStreetMap) for global coverage.
  */
 
 export interface CensusGeography {
@@ -81,66 +82,45 @@ const CENSUS_REGIONS: Record<string, { region: string; division: string }> = {
   '53': { region: 'West', division: 'Pacific' },
 };
 
-// FALLBACK: Mock data for development when API is unreachable
-const getMockLocation = (lat: number, lng: number) => {
-  const cityMap: Record<string, { city: string; state: string; county: string }> = {
-    '34.0522,-118.2437': { city: 'Los Angeles', state: 'CA', county: 'Los Angeles County' },
-    '40.7128,-74.0060': { city: 'New York', state: 'NY', county: 'New York County' },
-    '37.7749,-122.4194': { city: 'San Francisco', state: 'CA', county: 'San Francisco County' },
-    '41.8781,-87.6298': { city: 'Chicago', state: 'IL', county: 'Cook County' },
-    '29.7604,-95.3698': { city: 'Houston', state: 'TX', county: 'Harris County' },
-    '39.7392,-104.9903': { city: 'Denver', state: 'CO', county: 'Denver County' },
-    '47.6062,-122.3321': { city: 'Seattle', state: 'WA', county: 'King County' },
-    '38.9072,-77.0369': { city: 'Washington', state: 'DC', county: 'District of Columbia' },
-    '33.7490,-84.3880': { city: 'Atlanta', state: 'GA', county: 'Fulton County' },
-    '35.2271,-80.8431': { city: 'Charlotte', state: 'NC', county: 'Mecklenburg County' },
-    '42.3601,-71.0589': { city: 'Boston', state: 'MA', county: 'Suffolk County' },
-    '39.9526,-75.1652': { city: 'Philadelphia', state: 'PA', county: 'Philadelphia County' },
-    '32.7157,-117.1611': { city: 'San Diego', state: 'CA', county: 'San Diego County' },
-    '30.2672,-97.7431': { city: 'Austin', state: 'TX', county: 'Travis County' },
-    '45.5051,-122.6750': { city: 'Portland', state: 'OR', county: 'Multnomah County' },
-    '39.7684,-86.1581': { city: 'Indianapolis', state: 'IN', county: 'Marion County' },
-  };
-  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-  const exactMatch = cityMap[key];
-  if (exactMatch) return exactMatch;
-  return {
-    city: `City near ${lat.toFixed(2)}, ${lng.toFixed(2)}`,
-    state: 'US',
-    county: 'Unknown County',
-  };
-};
-
 export async function geocodeCoordinates(
   latitude: number,
   longitude: number
 ): Promise<CensusGeography> {
-  // Non-US heuristic: outside continental US + Alaska/Hawaii rough bounds
-  if (latitude < -60 || latitude > 72 || longitude < -180 || longitude > -60) {
-    if (latitude > -23 && latitude < -15 && longitude > 28 && longitude < 34) {
+  // Try Nominatim first (global coverage)
+  try {
+    const url = new URL('https://nominatim.openstreetmap.org/reverse');
+    url.searchParams.set('lat', String(latitude));
+    url.searchParams.set('lon', String(longitude));
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('addressdetails', '1');
+
+    const res = await fetch(url.toString(), {
+      headers: { 'User-Agent': 'FixMyDistrict/1.0 (contact@fixmydistrict.app)' },
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const address = data.address || {};
       return {
-        city: 'Harare',
-        stateProvince: 'Harare',
-        countryCode: 'ZW',
+        city: address.city || address.town || address.village || address.hamlet || '',
+        stateProvince: address.state || address.region || '',
+        postalCode: address.postcode || '',
+        county: address.county || '',
+        countryCode: (address.country_code || 'US').toUpperCase(),
         latitude,
         longitude,
-        geocodeStatus: 'manual',
-        geocodeSource: 'local-fallback',
-        metroArea: 'Harare',
+        geocodeStatus: 'matched',
+        geocodeSource: 'nominatim',
+        geocodeConfidence: 0.8,
       };
     }
-    // Return a generic non-US response
-    return {
-      city: 'International Location',
-      stateProvince: 'Unknown',
-      countryCode: 'US',
-      latitude,
-      longitude,
-      geocodeStatus: 'unmatched',
-      geocodeSource: 'local-fallback',
-    };
+    console.warn('Nominatim returned non-OK status:', res.status);
+  } catch (error) {
+    console.warn('Nominatim failed, trying Census API...', error);
   }
 
+  // Fall back to Census API (US only)
   try {
     const url = new URL('https://geocoding.geo.census.gov/geocoder/geographies/coordinates');
     url.searchParams.set('x', String(longitude));
@@ -150,98 +130,59 @@ export async function geocodeCoordinates(
     url.searchParams.set('format', 'json');
 
     const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) {
-      console.warn('Census API error, using fallback data');
-      const fallback = getMockLocation(latitude, longitude);
-      return {
-        city: fallback.city,
-        stateProvince: fallback.state,
-        county: fallback.county,
-        countryCode: 'US',
-        latitude,
-        longitude,
-        geocodeStatus: 'matched',
-        geocodeSource: 'fallback',
-        geocodeConfidence: 0.5,
-      };
+    if (res.ok) {
+      const data = await res.json();
+      const geos = data?.result?.geographies || {};
+      const states = geos['States']?.[0];
+      const counties = geos['Counties']?.[0];
+      const places = geos['Incorporated Places']?.[0] || geos['Census Designated Places']?.[0];
+      const zctas = geos['2020 Census ZIP Code Tabulation Areas']?.[0];
+
+      if (states) {
+        const stateFips = states.STATE;
+        const regionInfo = stateFips ? CENSUS_REGIONS[stateFips] : undefined;
+        return {
+          city: places?.NAME || '',
+          stateProvince: states.STUSAB || '',
+          postalCode: zctas?.ZCTA5 || '',
+          county: counties?.NAME || '',
+          countryCode: 'US',
+          latitude,
+          longitude,
+          geocodeStatus: 'matched',
+          geocodeSource: 'census',
+          geocodeConfidence: 0.9,
+          censusRegion: regionInfo?.region,
+          censusDivision: regionInfo?.division,
+          stateFips,
+          countyFips: counties?.COUNTY ? `${stateFips}${counties.COUNTY}` : undefined,
+          tractGeoid: geos['Census Tracts']?.[0]?.GEOID,
+          congressionalDistrict:
+            geos['119th Congressional Districts']?.[0]?.BASENAME ||
+            geos['119th Congressional Districts']?.[0]?.NAME ||
+            geos['Congressional Districts']?.[0]?.BASENAME,
+          schoolDistrict:
+            geos['Unified School Districts']?.[0]?.NAME ||
+            geos['Secondary School Districts']?.[0]?.NAME,
+          metroArea: places?.NAME || counties?.NAME,
+        };
+      }
     }
-
-    const data = await res.json();
-    const result = data?.result;
-    if (!result) {
-      console.warn('No result from Census API, using fallback');
-      const fallback = getMockLocation(latitude, longitude);
-      return {
-        city: fallback.city,
-        stateProvince: fallback.state,
-        county: fallback.county,
-        countryCode: 'US',
-        latitude,
-        longitude,
-        geocodeStatus: 'matched',
-        geocodeSource: 'fallback',
-        geocodeConfidence: 0.5,
-      };
-    }
-
-    const geos = result.geographies || {};
-    const states = geos['States']?.[0];
-    const counties = geos['Counties']?.[0];
-    const places = geos['Incorporated Places']?.[0] || geos['Census Designated Places']?.[0];
-    const zctas = geos['2020 Census ZIP Code Tabulation Areas']?.[0] || geos['ZIP Code Tabulation Areas']?.[0];
-
-    const stateFips = states?.STATE || counties?.STATE;
-    const regionInfo = stateFips ? CENSUS_REGIONS[stateFips] : undefined;
-
-    return {
-      addressLine: undefined,
-      city: places?.NAME || places?.BASENAME || 'Unknown',
-      postalCode: zctas?.ZCTA5 || zctas?.GEOID || '',
-      county: counties?.NAME || counties?.BASENAME || 'Unknown',
-      stateProvince: states?.STUSAB || states?.BASENAME || 'Unknown',
-      countryCode: 'US',
-      latitude,
-      longitude,
-      geocodeStatus: states || counties ? 'matched' : 'unmatched',
-      geocodeSource: 'census-geocoder',
-      geocodeConfidence: states ? 0.9 : 0.4,
-      censusRegion: regionInfo?.region,
-      censusDivision: regionInfo?.division,
-      stateFips,
-      countyFips: counties?.COUNTY ? `${stateFips}${counties.COUNTY}` : undefined,
-      tractGeoid: geos['Census Tracts']?.[0]?.GEOID,
-      blockGroupGeoid: undefined,
-      congressionalDistrict: geos['119th Congressional Districts']?.[0]?.BASENAME || 
-                           geos['119th Congressional Districts']?.[0]?.NAME ||
-                           geos['Congressional Districts']?.[0]?.BASENAME,
-      schoolDistrict: geos['Unified School Districts']?.[0]?.NAME ||
-                     geos['Secondary School Districts']?.[0]?.NAME,
-      metroArea: places?.NAME || counties?.NAME,
-    };
-  } catch {
-    console.warn('Census API error, using fallback data');
-    const fallback = getMockLocation(latitude, longitude);
-    return {
-      city: fallback.city,
-      stateProvince: fallback.state,
-      county: fallback.county,
-      countryCode: 'US',
-      latitude,
-      longitude,
-      geocodeStatus: 'matched',
-      geocodeSource: 'fallback',
-      geocodeConfidence: 0.5,
-    };
+  } catch (error) {
+    console.warn('Census API failed, using fallback...', error);
   }
-}
 
-function unmatched(latitude: number, longitude: number, source: string): CensusGeography {
+  // Final fallback — return empty fields (no fake "Unknown")
   return {
+    city: '',
+    stateProvince: '',
+    postalCode: '',
+    county: '',
+    countryCode: 'US',
     latitude,
     longitude,
-    countryCode: 'US',
     geocodeStatus: 'unmatched',
-    geocodeSource: source,
+    geocodeSource: 'fallback',
     geocodeConfidence: 0,
   };
 }

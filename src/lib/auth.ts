@@ -33,6 +33,24 @@ export function isSuperAdmin(role: string) {
   return role === 'super_admin';
 }
 
+export function isExpert(role: string) {
+  return role === 'referee' || role === 'admin' || role === 'super_admin';
+}
+
+export async function requireExpert(): Promise<SessionUser | NextResponse> {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!isExpert(user.role)) {
+    return NextResponse.json(
+      { error: 'Forbidden — expert access required' },
+      { status: 403 }
+    );
+  }
+  return user;
+}
+
 export async function requireAdmin(): Promise<SessionUser | NextResponse> {
   const user = await getSessionUser();
   if (!user) {
