@@ -15,6 +15,15 @@ interface SavedView {
   updatedAt?: string;
 }
 
+interface ShareItem {
+  id: string;
+  label: string | null;
+  urlPath: string;
+  viewCount: number;
+  createdAt: string;
+  lastViewedAt: string | null;
+}
+
 interface Props {
   filters: Filters;
   setFilters: (next: Filters | ((prev: Filters) => Filters)) => void;
@@ -46,15 +55,26 @@ export default function AnalyticsDashboardControls({ filters, setFilters, queryS
   const [useStockPhotos, setUseStockPhotos] = useState(true);
   const [exporting, setExporting] = useState(false);
 
+  // ✅ W3-3: Shares state
+  const [shares, setShares] = useState<ShareItem[]>([]);
+  const [showShares, setShowShares] = useState(false);
+
   const loadViews = useCallback(async () => {
     const res = await fetch('/api/admin/analytics/views');
     const data = await res.json();
     if (Array.isArray(data)) setViews(data);
   }, []);
 
+  const loadShares = useCallback(async () => {
+    const res = await fetch('/api/admin/analytics/shares');
+    const data = await res.json();
+    if (Array.isArray(data)) setShares(data);
+  }, []);
+
   useEffect(() => {
     loadViews();
-  }, [loadViews]);
+    loadShares();
+  }, [loadViews, loadShares]);
 
   const selectedView = views.find((v) => v.id === selectedViewId);
 
@@ -101,7 +121,7 @@ export default function AnalyticsDashboardControls({ filters, setFilters, queryS
     });
     const data = await res.json();
     if (res.status === 409 && !overwrite) {
-      if (window.confirm(`A dashboard named “${name}” already exists. Overwrite it?`)) {
+      if (window.confirm(`A dashboard named "${name}" already exists. Overwrite it?`)) {
         await persistView(true);
       }
       return;
@@ -110,7 +130,7 @@ export default function AnalyticsDashboardControls({ filters, setFilters, queryS
       setMessage(data.error || 'Save failed');
       return;
     }
-    setMessage(data.overwritten ? `Overwrote “${data.name}”` : `Saved “${data.name}”`);
+    setMessage(data.overwritten ? `Overwrote "${data.name}"` : `Saved "${data.name}"`);
     setSaveOpen(false);
     setSaveName('');
     setSaveDescription('');
@@ -162,6 +182,29 @@ export default function AnalyticsDashboardControls({ filters, setFilters, queryS
     }
     setSharePath(data.urlPath);
     setMessage('Share link created');
+    await loadShares();
+  };
+
+  const revokeShare = async (id: string) => {
+    if (!window.confirm('Revoke this share link? Anyone with the URL will lose access.')) return;
+    const res = await fetch(`/api/admin/analytics/shares?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (res.ok) {
+      setShares((prev) => prev.filter((s) => s.id !== id));
+      setMessage('Share revoked');
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setMessage(data.error || 'Revoke failed');
+    }
+  };
+
+  const copyShareUrl = async (urlPath: string) => {
+    const url = `${window.location.origin}${urlPath}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setMessage('Link copied');
+    } catch {
+      setMessage('Copy failed');
+    }
   };
 
   const exportSetupCsv = async () => {
@@ -253,6 +296,13 @@ export default function AnalyticsDashboardControls({ filters, setFilters, queryS
         <button
           type="button"
           className="btn-secondary btn-sm"
+          onClick={() => setShowShares((v) => !v)}
+        >
+          My shares ({shares.length})
+        </button>
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
           onClick={exportDataCsv}
           disabled={exporting}
         >
@@ -339,6 +389,59 @@ export default function AnalyticsDashboardControls({ filters, setFilters, queryS
         <div className="analytics-share-box">
           <p>Anyone with this link can view this dashboard (no login):</p>
           <ShareSheet urlPath={sharePath} title="Shared FixMyDistrict analytics" text="Open this analytics dashboard" />
+        </div>
+      )}
+
+      {showShares && (
+        <div className="analytics-shares-list">
+          <h4>My shared links</h4>
+          {shares.length === 0 ? (
+            <p className="analytics-hint">No shares yet. Click "Share this dashboard" to create one.</p>
+          ) : (
+            <ul>
+              {shares.map((s) => (
+                <li key={s.id}>
+                  <div>
+                    <strong>{s.label || 'Untitled share'}</strong>
+                    <span className="share-views">
+                      {' '}
+                      · {s.viewCount} view{s.viewCount === 1 ? '' : 's'}
+                    </span>
+                    {s.lastViewedAt && (
+                      <span className="analytics-hint">
+                        {' '}
+                        · last seen {new Date(s.lastViewedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="share-actions">
+                    <a
+                      className="btn-secondary btn-sm"
+                      href={s.urlPath}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open
+                    </a>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      onClick={() => copyShareUrl(s.urlPath)}
+                    >
+                      Copy
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      onClick={() => revokeShare(s.id)}
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

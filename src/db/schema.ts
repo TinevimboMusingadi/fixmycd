@@ -292,3 +292,16 @@ export const endorsements = pgTable('endorsements', {
   expertIdx: index('endorsements_expert_idx').on(table.expertUserId),
   reportExpertUnique: uniqueIndex('endorsements_report_expert_unique').on(table.reportId, table.expertUserId),
 }));
+
+export const shareViewEvents = pgTable('share_view_events', {
+  id: text('id').primaryKey(),
+  tokenId: text('token_id')
+    .notNull()
+    .references(() => analyticsShareTokens.id, { onDelete: 'cascade' }),
+  viewedAt: timestamp('viewed_at', { withTimezone: true }).notNull().defaultNow(),
+  referrer: text('referrer'),
+  userAgentHash: text('user_agent_hash'),
+}, (table) => ({
+  tokenIdx: index('share_view_token_idx').on(table.tokenId),
+  viewedAtIdx: index('share_view_viewed_at_idx').on(table.viewedAt),
+}));
