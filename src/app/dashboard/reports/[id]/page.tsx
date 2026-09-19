@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import ShareSheet from '@/components/ShareSheet';
+import { EndorsementsSection } from '@/components/reports/EndorsementsSection';
 import { formatRelativeTime } from '@/lib/utils';
 
 const MiniMap = dynamic(() => import('../../../../components/MiniMap'), { ssr: false });
@@ -52,15 +53,18 @@ export default function ReportDetailPage() {
   const [isPosting, setIsPosting] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isExpert, setIsExpert] = useState(false);
 
   useEffect(() => {
-    // Check auth state
     fetch('/api/auth/me')
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setIsAuthenticated(!!data?.authenticated))
+      .then((data) => {
+        setIsAuthenticated(!!data?.authenticated);
+        const role = data?.user?.role;
+        setIsExpert(role === 'referee' || role === 'admin' || role === 'super_admin');
+      })
       .catch(() => setIsAuthenticated(false));
 
-    // Fetch report and comments
     Promise.all([
       fetch(`/api/reports/${id}`).then((r) => r.json()),
       fetch(`/api/reports/${id}/comments`).then((r) => r.json()),
@@ -249,6 +253,8 @@ export default function ReportDetailPage() {
           </p>
         </div>
       </article>
+
+      <EndorsementsSection reportId={report.id} isExpert={isExpert} />
 
       <section className="comments-section">
         <h3>Comments ({report.commentCount})</h3>
