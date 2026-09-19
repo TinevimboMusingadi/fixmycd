@@ -125,6 +125,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             Report Issue
           </button>
         )}
+        <Link href="/install" className="pwa-install-link">
+          📱 Install App
+        </Link>
         {isReadOnly && (
           <div className="readonly-notice">
             <p>You&apos;re viewing this in read-only mode.</p>
