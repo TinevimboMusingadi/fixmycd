@@ -356,6 +356,48 @@ async function main() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS "analytics_share_tokens_token_idx" ON "analytics_share_tokens" ("token");`;
 
+  await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "status" text DEFAULT 'approved' NOT NULL;`;
+  await sql`UPDATE "users" SET "status" = 'approved' WHERE "status" IS NULL;`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS "beta_subscribers" (
+      "id" text PRIMARY KEY NOT NULL,
+      "email" text NOT NULL UNIQUE,
+      "created_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      "notified_at" timestamp with time zone
+    );
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS "endorsements" (
+      "id" text PRIMARY KEY NOT NULL,
+      "report_id" text NOT NULL REFERENCES "reports"("id") ON DELETE CASCADE,
+      "expert_user_id" text NOT NULL REFERENCES "users"("id"),
+      "severity_level" integer NOT NULL,
+      "note" text,
+      "created_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS "endorsements_report_idx" ON "endorsements" ("report_id");`;
+  await sql`CREATE INDEX IF NOT EXISTS "endorsements_expert_idx" ON "endorsements" ("expert_user_id");`;
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS "endorsements_report_expert_unique" ON "endorsements" ("report_id", "expert_user_id");`;
+
+  await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_notifications" boolean DEFAULT true NOT NULL;`;
+  await sql`UPDATE "users" SET "email_notifications" = true WHERE "email_notifications" IS NULL;`;
+
+    //Share view tracking
+  await sql`
+    CREATE TABLE IF NOT EXISTS "share_view_events" (
+      "id" text PRIMARY KEY NOT NULL,
+      "token_id" text NOT NULL REFERENCES "analytics_share_tokens"("id") ON DELETE CASCADE,
+      "viewed_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      "referrer" text,
+      "user_agent_hash" text
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS "share_view_token_idx" ON "share_view_events" ("token_id");`;
+  await sql`CREATE INDEX IF NOT EXISTS "share_view_viewed_at_idx" ON "share_view_events" ("viewed_at");`;
+  
   console.log('Migration complete.');
   await sql.end();
 }
