@@ -15,11 +15,19 @@ export const users = pgTable('users', {
   displayName: text('display_name'),
   passwordHash: text('password_hash'),
   role: text('role').notNull().default('viewer'),
+  status: text('status').notNull().default('approved'),
   bio: text('bio'),
   isSynthetic: boolean('is_synthetic').notNull().default(false),
   datasetKey: text('dataset_key'),
   disabledAt: timestamp('disabled_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const betaSubscribers = pgTable('beta_subscribers', {
+  id: text('id').primaryKey(),
+  email: text('email').unique().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  notifiedAt: timestamp('notified_at', { withTimezone: true }),
 });
 
 export const reports = pgTable('reports', {
@@ -269,4 +277,17 @@ export const analyticsShareTokens = pgTable('analytics_share_tokens', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   tokenIdx: index('analytics_share_tokens_token_idx').on(table.token),
+}));
+
+export const endorsements = pgTable('endorsements', {
+  id: text('id').primaryKey(),
+  reportId: text('report_id').notNull().references(() => reports.id, { onDelete: 'cascade' }),
+  expertUserId: text('expert_user_id').notNull().references(() => users.id),
+  severityLevel: integer('severity_level').notNull(),
+  note: text('note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  reportIdx: index('endorsements_report_idx').on(table.reportId),
+  expertIdx: index('endorsements_expert_idx').on(table.expertUserId),
+  reportExpertUnique: uniqueIndex('endorsements_report_expert_unique').on(table.reportId, table.expertUserId),
 }));
