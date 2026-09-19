@@ -43,6 +43,20 @@ export async function POST(request: Request) {
       );
     }
 
+    if (user.status === 'pending') {
+      return NextResponse.json(
+        { error: 'Your account is pending approval. Please wait for admin approval.' },
+        { status: 403 }
+      );
+    }
+
+    if (user.status === 'rejected') {
+      return NextResponse.json(
+        { error: 'Your account was not approved. Please contact support.' },
+        { status: 403 }
+      );
+    }
+
     const cookieStore = await cookies();
     cookieStore.set('session_user_id', user.id, SESSION_COOKIE_OPTIONS);
 

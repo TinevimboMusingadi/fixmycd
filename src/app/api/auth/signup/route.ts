@@ -4,8 +4,6 @@ import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { cookies } from 'next/headers';
-import { SESSION_COOKIE_OPTIONS } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
@@ -37,13 +35,18 @@ export async function POST(request: Request) {
       displayName,
       passwordHash,
       role: 'submitter',
+      status: 'pending',
       createdAt: new Date(),
     });
 
-    const cookieStore = await cookies();
-    cookieStore.set('session_user_id', userId, SESSION_COOKIE_OPTIONS);
-
-    return NextResponse.json({ success: true, user: { id: userId, email, displayName } }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Your account is pending approval. You will be notified once approved.',
+        user: { id: userId, email, displayName },
+      },
+      { status: 201 }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Signup failed';
     console.error('Signup error:', error);
