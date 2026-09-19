@@ -21,6 +21,7 @@ export const users = pgTable('users', {
   datasetKey: text('dataset_key'),
   disabledAt: timestamp('disabled_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  emailNotifications: boolean('email_notifications').notNull().default(true),
 });
 
 export const betaSubscribers = pgTable('beta_subscribers', {
