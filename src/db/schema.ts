@@ -278,3 +278,16 @@ export const analyticsShareTokens = pgTable('analytics_share_tokens', {
 }, (table) => ({
   tokenIdx: index('analytics_share_tokens_token_idx').on(table.token),
 }));
+
+export const endorsements = pgTable('endorsements', {
+  id: text('id').primaryKey(),
+  reportId: text('report_id').notNull().references(() => reports.id, { onDelete: 'cascade' }),
+  expertUserId: text('expert_user_id').notNull().references(() => users.id),
+  severityLevel: integer('severity_level').notNull(),
+  note: text('note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  reportIdx: index('endorsements_report_idx').on(table.reportId),
+  expertIdx: index('endorsements_expert_idx').on(table.expertUserId),
+  reportExpertUnique: uniqueIndex('endorsements_report_expert_unique').on(table.reportId, table.expertUserId),
+}));

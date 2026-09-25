@@ -2021,7 +2021,6 @@ button {
   margin-top: 12px;
 }
 
-
 /* Pending Users Approval */
 .pending-users-section {
   padding: 16px;
@@ -2063,6 +2062,63 @@ button {
   font-size: 16px;
   font-weight: 700;
   margin-bottom: 12px;
+}
+
+/* W2-3 — Endorsements */
+.endorsements-section {
+  padding: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.endorsement-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.endorsement-item {
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--purple-start);
+}
+
+.endorsement-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.endorsement-note {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.endorsed-badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+  font-weight: 600;
+}
+
+.endorsement-form {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.endorsement-form-actions {
+  display: flex;
+  gap: 8px;
 }
 
 @keyframes skeleton-loading {
