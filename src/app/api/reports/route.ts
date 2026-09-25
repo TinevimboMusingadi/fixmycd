@@ -17,11 +17,22 @@ export async function GET(request: Request) {
       category: searchParams.get('category') || undefined,
       status: searchParams.get('status') || undefined,
       severity: searchParams.get('severity') || undefined,
+      severityMin: searchParams.get('severityMin') || undefined,
+      severityMax: searchParams.get('severityMax') || undefined,
       keyword: searchParams.get('keyword') || undefined,
       featured: searchParams.get('featured') || undefined,
       userId: searchParams.get('userId') || undefined,
       limit: searchParams.get('limit') || undefined,
       offset: searchParams.get('offset') || undefined,
+      startDate: searchParams.get('startDate') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
+      west: searchParams.get('west') || undefined,
+      south: searchParams.get('south') || undefined,
+      east: searchParams.get('east') || undefined,
+      north: searchParams.get('north') || undefined,
+      radiusLat: searchParams.get('radiusLat') || undefined,
+      radiusLng: searchParams.get('radiusLng') || undefined,
+      radiusKm: searchParams.get('radiusKm') || undefined,
     });
 
     return NextResponse.json(data);
@@ -160,7 +171,6 @@ export async function POST(request: Request) {
       createdAt: now,
     });
 
-    // Enrich geography asynchronously-safe (await but non-fatal)
     try {
       await enrichReportLocation(reportId, parseFloat(latitude), parseFloat(longitude), {
         addressLine,
