@@ -242,6 +242,14 @@ export default function ReportDetailPage() {
                 Sign in to interact
               </Link>
             )}
+            <a
+              href={`/api/reports/${report.id}/pdf`}
+              className="action-btn"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              📄 PDF
+            </a>
           </div>
           <ShareSheet
             urlPath={`/r/${report.id}`}

@@ -2064,7 +2064,7 @@ button {
   margin-bottom: 12px;
 }
 
-/* W2-3 — Endorsements */
+/* Endorsements */
 .endorsements-section {
   padding: 16px;
   border-top: 1px solid var(--border-color);
@@ -2119,6 +2119,11 @@ button {
 .endorsement-form-actions {
   display: flex;
   gap: 8px;
+}
+
+/* PDF Download */
+.action-btn[href$="/pdf"] {
+  text-decoration: none;
 }
 
 @keyframes skeleton-loading {

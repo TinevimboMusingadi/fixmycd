@@ -382,6 +382,9 @@ async function main() {
   await sql`CREATE INDEX IF NOT EXISTS "endorsements_expert_idx" ON "endorsements" ("expert_user_id");`;
   await sql`CREATE UNIQUE INDEX IF NOT EXISTS "endorsements_report_expert_unique" ON "endorsements" ("report_id", "expert_user_id");`;
 
+  await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_notifications" boolean DEFAULT true NOT NULL;`;
+  await sql`UPDATE "users" SET "email_notifications" = true WHERE "email_notifications" IS NULL;`;
+  
   console.log('Migration complete.');
   await sql.end();
 }
