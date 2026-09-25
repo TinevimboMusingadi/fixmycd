@@ -27,6 +27,9 @@ const PlusIcon = () => (
 const LogOutIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
 );
+const LogInIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+);
 
 interface CurrentUser {
   id: string;
@@ -42,6 +45,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [loadingUser, setLoadingUser] = useState(true);
 
   const isAnalytics = pathname.startsWith('/dashboard/admin/analytics');
+  const isAuthenticated = !!currentUser;
+  const isReadOnly = !isAuthenticated;
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -78,14 +83,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <nav className="app-nav">
           {navLink('/dashboard', 'Home', HomeIcon)}
           {navLink('/dashboard/explore', 'Explore', ExploreIcon)}
-          {navLink('/dashboard/notifications', 'Notifications', BellIcon)}
-          {navLink('/dashboard/profile', 'Profile', UserIcon)}
+          {isAuthenticated && navLink('/dashboard/notifications', 'Notifications', BellIcon)}
+          {isAuthenticated && navLink('/dashboard/profile', 'Profile', UserIcon)}
           {isModerator && navLink('/dashboard/review', 'Review', ExploreIcon)}
           {isAdmin && navLink('/dashboard/admin/analytics', 'Analytics', ChartIcon)}
           {isAdmin && navLink('/dashboard/admin', 'Admin', UserIcon)}
-          <button onClick={() => fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href = '/login'; })} className="app-nav-link nav-btn">
-            <LogOutIcon /> <span>Log Out</span>
-          </button>
+          {isAuthenticated ? (
+            <button
+              onClick={() =>
+                fetch('/api/auth/logout', { method: 'POST' }).then(() => {
+                  window.location.href = '/login';
+                })
+              }
+              className="app-nav-link nav-btn"
+            >
+              <LogOutIcon /> <span>Log Out</span>
+            </button>
+          ) : (
+            <Link href="/login" className="app-nav-link">
+              <LogInIcon /> <span>Sign In</span>
+            </Link>
+          )}
         </nav>
 
         {currentUser && (
@@ -95,14 +113,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className="sidebar-user-info">
               <div className="sidebar-user-name">{currentUser.displayName}</div>
-              <div className="sidebar-user-handle">@{currentUser.email.split('@')[0]} · {currentUser.role}</div>
+              <div className="sidebar-user-handle">
+                @{currentUser.email.split('@')[0]} · {currentUser.role}
+              </div>
             </div>
           </div>
         )}
 
-        <button className="btn-primary sidebar-report-btn" onClick={() => setIsModalOpen(true)}>
-          Report Issue
-        </button>
+        {isAuthenticated && (
+          <button className="btn-primary sidebar-report-btn" onClick={() => setIsModalOpen(true)}>
+            Report Issue
+          </button>
+        )}
+        {isReadOnly && (
+          <div className="readonly-notice">
+            <p>You&apos;re viewing this in read-only mode.</p>
+            <Link href="/login" className="btn-primary sidebar-report-btn">
+              Sign in to interact
+            </Link>
+          </div>
+        )}
       </aside>
 
       <main className={`app-main ${isAnalytics ? 'app-main-wide' : ''}`}>{children}</main>
@@ -113,11 +143,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </aside>
       )}
 
-      <button className="fab" aria-label="Report Issue" onClick={() => setIsModalOpen(true)}>
-        <PlusIcon />
-      </button>
+      {isAuthenticated && (
+        <button className="fab" aria-label="Report Issue" onClick={() => setIsModalOpen(true)}>
+          <PlusIcon />
+        </button>
+      )}
 
-      {isModalOpen && (
+      {isModalOpen && isAuthenticated && (
         <AdvancedReportForm
           onClose={() => setIsModalOpen(false)}
           onSuccess={() => {
