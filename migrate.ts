@@ -356,6 +356,18 @@ async function main() {
   `;
   await sql`CREATE INDEX IF NOT EXISTS "analytics_share_tokens_token_idx" ON "analytics_share_tokens" ("token");`;
 
+  await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "status" text DEFAULT 'approved' NOT NULL;`;
+  await sql`UPDATE "users" SET "status" = 'approved' WHERE "status" IS NULL;`;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS "beta_subscribers" (
+      "id" text PRIMARY KEY NOT NULL,
+      "email" text NOT NULL UNIQUE,
+      "created_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      "notified_at" timestamp with time zone
+    );
+  `;
+
   console.log('Migration complete.');
   await sql.end();
 }
