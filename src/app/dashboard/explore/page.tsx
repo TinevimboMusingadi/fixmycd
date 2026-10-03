@@ -17,6 +17,9 @@ function ExploreContent() {
     status: searchParams.get('status') || '',
     severity: searchParams.get('severity') || '',
     keyword: searchParams.get('keyword') || '',
+    startDate: searchParams.get('startDate') || '',
+    endDate: searchParams.get('endDate') || '',
+    radiusKm: searchParams.get('radiusKm') || '',
   });
 
   const handleFilterChange = (key: string, value: string) => {
