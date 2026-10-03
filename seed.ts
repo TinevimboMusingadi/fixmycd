@@ -23,6 +23,7 @@ import {
   flags,
   serviceAreas,
   reportServiceAreas,
+  endorsements,
 } from './src/db/schema';
 import { INFRASTRUCTURE_TAXONOMY, FAILURE_TYPES } from './src/lib/categories';
 
@@ -71,8 +72,25 @@ const IMAGE_POOL = [
   'https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=800&q=80',
   'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=800&q=80',
 ];
+
+// Sample photos with known GPS coords (for demoing EXIF extraction)
+const SAMPLE_GPS_PHOTOS = [
+  {
+    url: 'https://images.unsplash.com/photo-1515165562835-c4c2e6c0b4d2?auto=format&fit=crop&w=800&q=80',
+    description: 'Cracked sidewalk near City Hall',
+    lat: 38.8977,
+    lng: -77.0365,
+  },
+  {
+    url: 'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=800&q=80',
+    description: 'Flooded underpass on 14th St',
+    lat: 40.7128,
+    lng: -74.0060,
+  },
+];
+
 const AGENCIES = ['DOT', 'DPW', 'Water Utility', 'Power Utility', 'Parks Dept', 'School District', 'Transit Authority', 'Emergency Management'];
-const STATUSES = ['submitted', 'in_review', 'accepted', 'in_progress', 'resolved', 'resubmit'] as const;
+const STATUSES = ['submitted', 'in_review', 'accepted', 'in_progress', 'resolved', 'resubmit', 'not_an_issue'] as const;
 const FIRST = ['Alex', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Avery', 'Quinn', 'Sam', 'Jamie', 'Chris', 'Pat', 'Drew', 'Cameron', 'Reese'];
 const LAST = ['Nguyen', 'Patel', 'Garcia', 'Johnson', 'Williams', 'Brown', 'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor', 'Anderson', 'Thomas', 'Jackson', 'White'];
 
@@ -145,6 +163,7 @@ async function clearDemoOnly() {
   const reportIds = demoReports.map((r) => r.id);
   for (let i = 0; i < reportIds.length; i += BATCH) {
     const chunk = reportIds.slice(i, i + BATCH);
+    await db.delete(endorsements).where(inArray(endorsements.reportId, chunk));
     await db.delete(upvotes).where(inArray(upvotes.reportId, chunk));
     await db.delete(comments).where(inArray(comments.reportId, chunk));
     await db.delete(reportStatusHistory).where(inArray(reportStatusHistory.reportId, chunk));
@@ -158,6 +177,64 @@ async function clearDemoOnly() {
   if (demoUsers.length) {
     await db.delete(users).where(inArray(users.id, demoUsers.map((u) => u.id)));
   }
+}
+
+async function seedEndorsements() {
+  if (dryRun) return;
+
+  console.log('Seeding endorsements…');
+
+  const refereeId = detId('user', 'referee');
+
+  // Get all demo reports (existing + newly inserted)
+  const allReports = await db
+    .select({ id: reports.id, severity: reports.severity })
+    .from(reports)
+    .where(eq(reports.datasetKey, DATASET));
+
+  // Get existing endorsements to avoid duplicates
+  const existingEndorsements = await db
+    .select({ reportId: endorsements.reportId })
+    .from(endorsements);
+  const alreadyEndorsed = new Set(existingEndorsements.map((e) => e.reportId));
+
+  const rowsToInsert: Array<{
+    id: string;
+    reportId: string;
+    expertUserId: string;
+    severityLevel: number;
+    note: string | null;
+    createdAt: Date;
+  }> = [];
+
+  // Endorse every 37th report that isn't already endorsed
+  for (let i = 0; i < allReports.length; i += 37) {
+    const report = allReports[i];
+    if (alreadyEndorsed.has(report.id)) continue;
+
+    rowsToInsert.push({
+      id: detId('end', report.id),
+      reportId: report.id,
+      expertUserId: refereeId,
+      severityLevel: Math.min(5, Math.max(1, report.severity || 3)),
+      note: pick(
+        [
+          'Verified on site. Escalate to county.',
+          'Consistent with other reports in the area.',
+          'Reclassified severity based on inspection.',
+          'Confirmed structural damage.',
+        ],
+        i
+      ),
+      createdAt: new Date(),
+    });
+  }
+
+  if (rowsToInsert.length > 0) {
+    await insertChunks(endorsements, rowsToInsert, 'endorsements');
+  }
+
+  console.log(`Endorsements seeded: ${rowsToInsert.length}`);
 }
 
 async function seed() {
@@ -406,6 +483,91 @@ async function seed() {
     });
   }
 
+  // Sample reports with GPS metadata
+  for (let i = 0; i < SAMPLE_GPS_PHOTOS.length; i++) {
+    const sample = SAMPLE_GPS_PHOTOS[i];
+    const reportId = detId('rpt', `sample_gps_${i}`);
+    if (existingIds.has(reportId)) {
+      skipped++;
+      continue;
+    }
+    const submitterId = pick(submitterIds, i);
+    const createdAt = new Date(Date.now() - (i + 1) * 86400000);
+    reportRows.push({
+      id: reportId,
+      referenceNo: `FMD-G${1000 + i}`,
+      submitterId,
+      title: `Sample GPS photo #${i + 1}`,
+      description: sample.description,
+      latitude: sample.lat,
+      longitude: sample.lng,
+      severity: 3,
+      status: 'submitted',
+      category: 'Transportation',
+      subcategory: 'Road',
+      infrastructureClass: 'Transportation',
+      infrastructureType: 'Road',
+      failureType: 'Surface Damage',
+      postAction: 'failure',
+      isSynthetic: true,
+      datasetKey: DATASET,
+      estimatedCostLow: 500,
+      estimatedCostHigh: 5000,
+      currency: 'USD',
+      peopleAffected: 100 + i * 50,
+      occurredAt: createdAt,
+      createdAt,
+      updatedAt: createdAt,
+      suspectedCause: null,
+      assetName: null,
+      responsibleAgency: null,
+      isRecurrence: false,
+      postType: 'new',
+      evidenceType: 'photo',
+      observationConfidence: 5,
+      actualCost: null,
+      costEstimateSource: null,
+      costConfidence: null,
+      householdsAffected: null,
+      outageDurationHours: null,
+      safetyImpact: false,
+      accessibilityImpact: false,
+      environmentalImpact: false,
+      tags: 'sample,gps,photo',
+      imageUrl: sample.url,
+      isHidden: false,
+      featured: false,
+      resolvedAt: null,
+    });
+    locationRows.push({
+      id: detId('loc', `sample_gps_${i}`),
+      reportId,
+      addressLine: null,
+      city: null,
+      postalCode: null,
+      county: null,
+      stateProvince: null,
+      countryCode: 'US',
+      latitude: sample.lat,
+      longitude: sample.lng,
+      geocodeStatus: 'pending',
+      geocodeSource: 'sample-gps',
+      geocodeConfidence: 0.8,
+      censusRegion: null,
+      censusDivision: null,
+      stateFips: null,
+      countyFips: null,
+      tractGeoid: null,
+      congressionalDistrict: null,
+      stateSenateDistrict: null,
+      stateHouseDistrict: null,
+      schoolDistrict: null,
+      metroArea: null,
+      createdAt,
+      updatedAt: createdAt,
+    });
+  }
+
   // Harare sample
   for (let i = 0; i < 15; i++) {
     const reportId = detId('rpt', `harare_${i}`);
@@ -499,6 +661,9 @@ async function seed() {
     await insertChunks(comments, commentRows, 'comments');
     await insertChunks(reportServiceAreas, rsaRows, 'service links');
   }
+
+  //Seed endorsements in their own pass (queries all reports, not just new)
+  await seedEndorsements();
 
   console.timeEnd('seed');
   console.log(`Done. inserted=${reportRows.length}, skipped(existing)=${skipped}`);
