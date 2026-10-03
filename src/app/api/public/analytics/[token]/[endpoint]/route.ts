@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+import { db } from '@/db';
+import { shareViewEvents } from '@/db/schema';
+import { eq, and, gt } from 'drizzle-orm';
+import crypto from 'crypto';
 import {
   getAnalyticsSummary,
   getBreakdowns,
@@ -11,6 +15,7 @@ import {
   sanitizeAnalyticsFilters,
 } from '@/lib/analytics';
 import { resolveShareToken } from '@/lib/analytics-share';
+import { hashUserAgent, extractReferrer } from '@/lib/hashing';
 import type { AnalyticsFilters } from '@/lib/analytics-types';
 
 function optionalParamNumber(searchParams: URLSearchParams, key: string): number | undefined {
@@ -31,8 +36,44 @@ export async function GET(
       return NextResponse.json({ error: 'Share link invalid or expired' }, { status: 404 });
     }
 
+    // ✅ W3-3: Log view (only for 'summary' endpoint to avoid double-counting)
+    if (endpoint === 'summary' && share.id) {
+      try {
+        const userAgent = request.headers.get('user-agent');
+        const referrer = request.headers.get('referer');
+        const uaHash = hashUserAgent(userAgent);
+
+        // Dedupe: skip if same UA viewed this token in last hour
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const recent = await db
+          .select({ id: shareViewEvents.id })
+          .from(shareViewEvents)
+          .where(
+            and(
+              eq(shareViewEvents.tokenId, share.id),
+              uaHash
+                ? eq(shareViewEvents.userAgentHash, uaHash)
+                : eq(shareViewEvents.userAgentHash, ''),
+              gt(shareViewEvents.viewedAt, oneHourAgo)
+            )
+          )
+          .limit(1);
+
+        if (recent.length === 0) {
+          await db.insert(shareViewEvents).values({
+            id: crypto.randomUUID(),
+            tokenId: share.id,
+            referrer: extractReferrer(referrer),
+            userAgentHash: uaHash,
+            viewedAt: new Date(),
+          });
+        }
+      } catch (err) {
+        console.error('View tracking failed:', err);
+      }
+    }
+
     const { searchParams } = new URL(request.url);
-    // Snapshot filters win; allow only presentation overrides
     const filters: AnalyticsFilters = sanitizeAnalyticsFilters({
       ...share.filters,
       groupBy: searchParams.get('groupBy') || share.filters.groupBy,

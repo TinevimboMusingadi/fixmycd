@@ -384,6 +384,19 @@ async function main() {
 
   await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "email_notifications" boolean DEFAULT true NOT NULL;`;
   await sql`UPDATE "users" SET "email_notifications" = true WHERE "email_notifications" IS NULL;`;
+
+    //Share view tracking
+  await sql`
+    CREATE TABLE IF NOT EXISTS "share_view_events" (
+      "id" text PRIMARY KEY NOT NULL,
+      "token_id" text NOT NULL REFERENCES "analytics_share_tokens"("id") ON DELETE CASCADE,
+      "viewed_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      "referrer" text,
+      "user_agent_hash" text
+    );
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS "share_view_token_idx" ON "share_view_events" ("token_id");`;
+  await sql`CREATE INDEX IF NOT EXISTS "share_view_viewed_at_idx" ON "share_view_events" ("viewed_at");`;
   
   console.log('Migration complete.');
   await sql.end();

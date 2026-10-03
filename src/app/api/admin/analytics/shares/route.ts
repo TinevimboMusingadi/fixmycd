@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { eq, desc, and, isNull } from 'drizzle-orm';
+import { eq, desc, and, isNull, sql, inArray } from 'drizzle-orm';
 import { db } from '@/db';
-import { analyticsShareTokens } from '@/db/schema';
+import { analyticsShareTokens, shareViewEvents } from '@/db/schema';
 import { isAuthError, requireAdmin } from '@/lib/auth';
 import { filtersForPersist } from '@/lib/analytics';
 
@@ -17,15 +17,39 @@ export async function GET() {
       .where(and(eq(analyticsShareTokens.createdBy, admin.id), isNull(analyticsShareTokens.revokedAt)))
       .orderBy(desc(analyticsShareTokens.createdAt));
 
+    if (rows.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    const tokenIds = rows.map((r) => r.id);
+    const viewCounts = await db
+      .select({
+        tokenId: shareViewEvents.tokenId,
+        count: sql<number>`count(*)`.as('count'),
+        lastViewed: sql<string>`max(${shareViewEvents.viewedAt})`.as('lastViewed'),
+      })
+      .from(shareViewEvents)
+      .where(inArray(shareViewEvents.tokenId, tokenIds))
+      .groupBy(shareViewEvents.tokenId);
+
+    const viewsByToken = new Map(
+      viewCounts.map((v) => [v.tokenId, { count: Number(v.count), lastViewed: v.lastViewed }])
+    );
+
     return NextResponse.json(
-      rows.map((r) => ({
-        id: r.id,
-        token: r.token,
-        label: r.label,
-        urlPath: `/v/${r.token}`,
-        createdAt: r.createdAt.toISOString(),
-        expiresAt: r.expiresAt?.toISOString() ?? null,
-      }))
+      rows.map((r) => {
+        const views = viewsByToken.get(r.id);
+        return {
+          id: r.id,
+          token: r.token,
+          label: r.label,
+          urlPath: `/v/${r.token}`,
+          createdAt: r.createdAt.toISOString(),
+          expiresAt: r.expiresAt?.toISOString() ?? null,
+          viewCount: views?.count ?? 0,
+          lastViewedAt: views?.lastViewed ?? null,
+        };
+      })
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to list shares';
@@ -66,6 +90,8 @@ export async function POST(request: Request) {
         label: body.label || null,
         urlPath: `/v/${token}`,
         createdAt: now.toISOString(),
+        viewCount: 0,
+        lastViewedAt: null,
       },
       { status: 201 }
     );
