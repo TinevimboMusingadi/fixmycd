@@ -130,9 +130,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </Link>
         {isReadOnly && (
           <div className="readonly-notice">
-            <p>You&apos;re viewing this in read-only mode.</p>
+            <p>You&apos;re browsing as a guest. Sign in to post, comment, and upvote.</p>
             <Link href="/login" className="btn-primary sidebar-report-btn">
-              Sign in to interact
+              Sign in
+            </Link>
+            <Link href="/signup" className="btn-primary sidebar-report-btn">
+              Create Account
             </Link>
           </div>
         )}

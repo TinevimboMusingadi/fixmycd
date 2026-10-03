@@ -44,7 +44,8 @@ export async function GET(
         const uaHash = hashUserAgent(userAgent);
 
         // Dedupe: skip if same UA viewed this token in last hour
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const DEDUPE_VIEW_WINDOW_IN_MS = 60 * 60 * 1000;
+        const oneHourAgo = new Date(Date.now() - DEDUPE_VIEW_WINDOW_IN_MS);
         const recent = await db
           .select({ id: shareViewEvents.id })
           .from(shareViewEvents)
