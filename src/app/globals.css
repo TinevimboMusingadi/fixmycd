@@ -2175,6 +2175,36 @@ button {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+/* PWA Install Link */
+.pwa-install-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  margin-top: 8px;
+  background: transparent;
+  border: 1px solid #2a2a2a;
+  border-radius: 9999px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.pwa-install-link:hover {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.15);
+}
+
+@media (max-width: 768px) {
+  .pwa-install-link {
+    display: none;
+  }
+}
 
 @keyframes skeleton-loading {
   0% { background-position: 200% 0; }
