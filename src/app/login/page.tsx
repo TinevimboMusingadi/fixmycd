@@ -3,9 +3,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { safeRedirect } from '@/lib/redirect';
+import { useHydrated } from '@/lib/useHydrated';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
+  const hydrated = useHydrated();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -93,7 +95,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <button type="submit" className="btn-primary auth-btn" disabled={loading}>
+          <button type="submit" className="btn-primary auth-btn" disabled={loading || !hydrated}>
             {loading ? 'Logging in...' : 'Log In'}
           </button>
         </form>

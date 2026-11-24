@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { formatUsd, type CardErrors } from '@/lib/payments-demo';
+import { useHydrated } from '@/lib/useHydrated';
 
 export type DemoCard = { number: string; expiry: string; cvc: string; name: string };
 export type CheckoutResult = { ok: true } | { ok: false; error: string; fields?: CardErrors };
@@ -23,6 +24,7 @@ export function DemoCheckout({
   const [errors, setErrors] = useState<CardErrors>({});
   const [error, setError] = useState('');
   const [paying, setPaying] = useState(false);
+  const hydrated = useHydrated();
 
   const set = (key: keyof DemoCard) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setCard((c) => ({ ...c, [key]: e.target.value }));
@@ -78,7 +80,7 @@ export function DemoCheckout({
           {errors.cvc && <p className="field-error">{errors.cvc}</p>}
         </div>
       </div>
-      <button type="submit" className="btn-primary auth-btn" disabled={paying}>
+      <button type="submit" className="btn-primary auth-btn" disabled={paying || !hydrated}>
         {paying ? 'Processing…' : buttonLabel ?? `Pay ${formatUsd(amountCents)}`}
       </button>
     </form>
