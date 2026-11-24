@@ -7,6 +7,8 @@ async function expectPath(page: Page, pathname: string) {
 }
 
 async function login(page: Page, email: string, password = E2E_PASSWORD) {
+  // Interact only once the page has hydrated; earlier input can be lost on slow CI runners.
+  await page.waitForLoadState('networkidle');
   await page.getByLabel('Email Address').fill(email);
   await page.getByLabel('Password').fill(password);
   await page.getByRole('button', { name: 'Log In' }).click();
@@ -49,6 +51,7 @@ test('a signed-in user upvotes and comments, and the author is notified', async 
 test('signup waits for approval, an admin approves, then the user can log in', async ({ page, browser }) => {
   const email = `newbie+${Date.now()}@e2e.test`;
   await page.goto('/signup');
+  await page.waitForLoadState('networkidle');
   await page.getByLabel('Full Name').fill('New Bie');
   await page.getByLabel('Email Address').fill(email);
   await page.getByLabel('Password').fill('long-enough-pass');
@@ -167,6 +170,7 @@ test('a standard user can open analytics without seeing reporter details', async
 test('a new user can skip the approval wait with the $1 check (demo)', async ({ page }) => {
   const email = `payer-${Date.now()}@e2e.test`;
   await page.goto('/signup');
+  await page.waitForLoadState('networkidle');
   await page.getByLabel('Full Name').fill('Paying Person');
   await page.getByLabel('Email Address').fill(email);
   await page.getByLabel('Password').fill('long-enough-pass');

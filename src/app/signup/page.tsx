@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DemoCheckout, postPayment } from '@/components/DemoCheckout';
 import { WhyOneDollar } from '@/components/WhyOneDollar';
+import { useHydrated } from '@/lib/useHydrated';
 
 export default function SignupPage() {
   const router = useRouter();
   const [displayName, setDisplayName] = useState('');
+  const hydrated = useHydrated();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [acceptEthics, setAcceptEthics] = useState(false);
@@ -159,7 +161,7 @@ export default function SignupPage() {
                 {fieldErrors.acceptEthics && <p className="field-error">{fieldErrors.acceptEthics}</p>}
               </div>
 
-              <button type="submit" className="btn-primary auth-btn" disabled={loading}>
+              <button type="submit" className="btn-primary auth-btn" disabled={loading || !hydrated}>
                 {loading ? 'Creating account...' : 'Sign Up'}
               </button>
             </form>

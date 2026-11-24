@@ -2,15 +2,15 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { safeRedirect } from '@/lib/redirect';
+import { useHydrated } from '@/lib/useHydrated';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
+  const hydrated = useHydrated();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,8 +29,11 @@ export default function LoginPage() {
       if (response.ok) {
         // Return to the page that sent the user here (same-site paths only).
         const target = safeRedirect(new URLSearchParams(window.location.search).get('redirect'));
-        router.replace(target);
-        router.refresh();
+        // A full page load, not router.replace() + router.refresh(): calling refresh right
+        // after replace can cancel the navigation and leave the user on /login. A fresh load
+        // also makes every part of the page pick up the new session.
+        window.location.replace(target);
+        return;
       } else if (response.status === 429) {
         setError('Too many attempts. Please wait a few minutes and try again.');
       } else {
@@ -92,7 +95,7 @@ export default function LoginPage() {
             />
           </div>
 
-          <button type="submit" className="btn-primary auth-btn" disabled={loading}>
+          <button type="submit" className="btn-primary auth-btn" disabled={loading || !hydrated}>
             {loading ? 'Logging in...' : 'Log In'}
           </button>
         </form>

@@ -2645,3 +2645,10 @@ a.notification-item {
 }
 .analytics-page, .chart-panel, .analytics-map-section, .analytics-kpi-grid > * { min-width: 0; }
 .ethics-agree input[type='checkbox'] { width: auto; flex: 0 0 auto; margin-top: 4px; }
+
+/* Post page: author above the content, so the content keeps the full width on phones. */
+.report-detail-card { flex-direction: column; }
+.report-detail-card .report-actions { flex-wrap: wrap; gap: 4px 12px; max-width: none; justify-content: flex-start; }
+.report-detail .feed-header h2 { overflow-wrap: anywhere; }
+.share-sheet-url, .report-detail-card a[href^="/r/"] { overflow-wrap: anywhere; word-break: break-word; }
+.report-detail-card .share-sheet { max-width: 100%; }
