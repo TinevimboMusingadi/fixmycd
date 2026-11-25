@@ -251,10 +251,10 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
       className="modal-overlay"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="modal-content modal-content-wide">
+      <div className="modal-content modal-content-wide report-form-sheet" role="dialog" aria-modal="true" aria-label="Post an Infrastructure Issue">
         <div className="modal-header">
           <h3>Post an Infrastructure Issue</h3>
-          <button className="close-btn" onClick={onClose}>
+          <button type="button" className="close-btn" onClick={onClose} aria-label="Close">
             &times;
           </button>
         </div>
