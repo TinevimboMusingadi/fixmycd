@@ -105,6 +105,19 @@ function ClusterLayer({ reports }: { reports: Report[] }) {
   return null;
 }
 
+/** Keep Leaflet's tiles in step with its box (phone filters opening, rotation). */
+function SizeSync() {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => map.invalidateSize());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [map]);
+  return null;
+}
+
 export default function MapComponent({ queryString = '' }: { queryString?: string }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
@@ -146,6 +159,7 @@ export default function MapComponent({ queryString = '' }: { queryString?: strin
           attribution='&copy; OpenStreetMap'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <SizeSync />
         <ClusterLayer reports={reports} />
         {userPos && (
           <Marker position={userPos} icon={userIcon}>

@@ -7,6 +7,7 @@ import { InstallButton } from '@/components/InstallButton';
 export default function InstallPage() {
   return (
     <div
+      className="install-page"
       style={{
         minHeight: '100vh',
         background: 'var(--bg-primary)',
@@ -23,8 +24,8 @@ export default function InstallPage() {
         }}
       >
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{ fontSize: '60px', marginBottom: '16px' }}>📱</div>
+        <div className="install-hero" style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <div className="install-hero-icon" style={{ fontSize: '60px', marginBottom: '16px' }}>📱</div>
           <h1
             style={{
               fontSize: '32px',
@@ -56,6 +57,7 @@ export default function InstallPage() {
 
         {/* iOS */}
         <section
+          className="install-card"
           style={{
             background: 'var(--bg-tertiary)',
             border: '1px solid var(--border-color)',
@@ -103,6 +105,7 @@ export default function InstallPage() {
 
         {/* Android */}
         <section
+          className="install-card"
           style={{
             background: 'var(--bg-tertiary)',
             border: '1px solid var(--border-color)',
@@ -150,6 +153,7 @@ export default function InstallPage() {
 
         {/* Desktop */}
         <section
+          className="install-card"
           style={{
             background: 'var(--bg-tertiary)',
             border: '1px solid var(--border-color)',
@@ -195,6 +199,7 @@ export default function InstallPage() {
 
         {/* Why Install */}
         <section
+          className="install-card"
           style={{
             background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(109, 40, 217, 0.1))',
             border: '1px solid rgba(139, 92, 246, 0.3)',

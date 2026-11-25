@@ -30,6 +30,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  // Lets the app paint under the notch / home indicator; padding uses env(safe-area-inset-*).
+  viewportFit: 'cover',
   themeColor: '#8b5cf6',
 };
 

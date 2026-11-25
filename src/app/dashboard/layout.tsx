@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import TrendingSidebar from '../../components/TrendingSidebar';
 import AdvancedReportForm from '../../components/reports/AdvancedReportForm';
 import { CurrentUserProvider, isAdminRole, isModeratorRole, useCurrentUser } from '../../components/CurrentUserContext';
-import { clearOfflineCaches } from '../../lib/pwa-client';
+import { logOut } from '../../lib/logout';
 import { loginUrlFor } from '../../lib/redirect';
 import { handleFor } from '../../lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -95,11 +95,6 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const isModerator = isModeratorRole(currentUser?.role);
   const isAdmin = isAdminRole(currentUser?.role);
 
-  const logout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    await clearOfflineCaches();
-    window.location.href = '/login';
-  };
 
   return (
     <div className={`app-container ${isAnalytics ? 'analytics-mode' : ''}`}>
@@ -147,7 +142,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
           {isAuthenticated ? (
-            <button onClick={logout} className="app-nav-link nav-btn">
+            // On phones Log Out lives on the Account page instead of the tab bar.
+            <button onClick={() => void logOut()} className="app-nav-link nav-btn app-nav-logout">
               <LogOutIcon /> <span>Log Out</span>
             </button>
           ) : loadingUser ? null : (
