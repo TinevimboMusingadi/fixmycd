@@ -3066,7 +3066,7 @@ a, button, label, select, summary { touch-action: manipulation; }
   .donate-amount { min-height: 44px; }
   .why-dollar { padding: 12px 14px; margin-bottom: 16px; }
   .demo-checkout-row { gap: 10px; }
-  .ethics-agree { font-size: 14px; line-height: 1.45; }
+  .form-group .ethics-agree { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
   .ethics-agree input[type='checkbox'] { flex: 0 0 18px; width: 18px; height: 18px; padding: 0; margin-top: 2px; accent-color: var(--purple-start); }
 
   /* ---------- Landing ---------- */
