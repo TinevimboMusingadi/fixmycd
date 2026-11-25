@@ -84,6 +84,8 @@ export default function AnalyticsContent() {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [tab, setTab] = useState<Tab>('overview');
+  // Phones only: the long filter list folds away behind a toggle (always open on desktop).
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [breakdowns, setBreakdowns] = useState<BreakdownItem[]>([]);
   const [timeseries, setTimeseries] = useState<TimeSeriesPoint[]>([]);
@@ -284,7 +286,16 @@ export default function AnalyticsContent() {
         ))}
       </div>
 
-      <div className="analytics-filters">
+      <button
+        type="button"
+        className={`analytics-filters-toggle ${filtersOpen || activeChips.length ? 'active' : ''}`}
+        aria-expanded={filtersOpen}
+        aria-controls="analytics-filters"
+        onClick={() => setFiltersOpen((v) => !v)}
+      >
+        Filters{activeChips.length ? ` · ${activeChips.length}` : ''}
+      </button>
+      <div id="analytics-filters" className={`analytics-filters ${filtersOpen ? 'open' : ''}`}>
         <select value={filters.datasetKey} onChange={(e) => setFilter('datasetKey', e.target.value)}>
           <option value="">All datasets</option>
           <option value="us-demo-v1">US demo</option>

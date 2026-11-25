@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { isAdminRole, isModeratorRole, useCurrentUser } from '@/components/CurrentUserContext';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { logOut } from '@/lib/logout';
 
 type Section = { href: string; title: string; description: string };
 
@@ -46,6 +48,20 @@ export default function AccountPage() {
           </li>
         ))}
       </ul>
+      {/* Phones: the tab bar has no room for these, so they live here (hidden on desktop). */}
+      <div className="account-mobile-extras">
+        <div className="account-mobile-row">
+          <span>Appearance</span>
+          <ThemeToggle compact />
+        </div>
+        <Link href="/install" className="account-mobile-row">
+          <span>Install App</span>
+          <span aria-hidden="true">›</span>
+        </Link>
+        <button type="button" className="account-logout-btn" onClick={() => void logOut()}>
+          Log Out
+        </button>
+      </div>
     </div>
   );
 }
