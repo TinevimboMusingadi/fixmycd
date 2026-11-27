@@ -1,14 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, FlatList, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useScrollToTop } from 'expo-router';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { api, PAGE_SIZE } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useUpvote } from '@/lib/hooks';
 import { useCurrentLocation } from '@/lib/location';
+import { useHideOnScroll, useNavProgress } from '@/lib/navScroll';
 import type { FeedFilters, Post } from '@/lib/types';
 import { brand, radius, useTheme } from '@/theme';
 import { PostCard, PostCardSkeleton } from '@/components/PostCard';
@@ -24,6 +26,11 @@ export default function HomeScreen() {
   const onUpvote = useUpvote();
   const listRef = useRef<FlatList<Post>>(null);
   useScrollToTop(listRef);
+  // Twitter-style: the top bar slides up and the tab bar down while scrolling the feed.
+  const tabBarHeight = useBottomTabBarHeight();
+  const hideOnScroll = useHideOnScroll();
+  const navProgress = useNavProgress();
+  const [headerHeight, setHeaderHeight] = useState(insets.top + 52 + 48);
 
   const [mode, setMode] = useState<Mode>('forYou');
   const [filters, setFilters] = useState<FeedFilters>({});
@@ -83,8 +90,12 @@ export default function HomeScreen() {
   const renderItem = useCallback(({ item }: { item: Post }) => <PostCard post={item} onUpvote={onUpvote} />, [onUpvote]);
   const filterCount = activeFilterCount(filters);
 
+  const headerShift = navProgress.interpolate({ inputRange: [0, 1], outputRange: [0, -(headerHeight - insets.top)] });
   const header = (
-    <View style={{ backgroundColor: colors.bg, paddingTop: insets.top }}>
+    <Animated.View
+      onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+      style={[styles.header, { backgroundColor: colors.bg, paddingTop: insets.top, transform: [{ translateY: searchOpen ? 0 : headerShift }] }]}
+    >
       <View style={styles.topBar}>
         {searchOpen ? (
           <View style={[styles.searchBox, { backgroundColor: colors.bgTertiary }]}>
@@ -160,7 +171,7 @@ export default function HomeScreen() {
           );
         })}
       </View>
-    </View>
+    </Animated.View>
   );
 
   let empty: React.ReactNode = null;
@@ -226,9 +237,9 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      {header}
       <FlatList
         ref={listRef}
+        {...(searchOpen ? {} : hideOnScroll)}
         data={nearbyReady && !feed.isLoading ? posts : []}
         keyExtractor={(p) => p.id}
         renderItem={renderItem}
@@ -256,13 +267,25 @@ export default function HomeScreen() {
             </View>
           ) : undefined
         }
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={brand.purpleStart} colors={[brand.purpleStart]} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={brand.purpleStart}
+            colors={[brand.purpleStart]}
+            progressViewOffset={headerHeight}
+          />
+        }
         keyboardDismissMode="on-drag"
         removeClippedSubviews
         windowSize={9}
         initialNumToRender={6}
-        contentContainerStyle={{ paddingBottom: 24 }}
+        contentContainerStyle={{ paddingTop: headerHeight, paddingBottom: tabBarHeight + 24 }}
+        scrollIndicatorInsets={{ top: headerHeight - insets.top, bottom: tabBarHeight }}
       />
+      {header}
+      {/* Keeps the status bar area solid while the header is slid away. */}
+      <View pointerEvents="none" style={[styles.statusCover, { height: insets.top, backgroundColor: colors.bg }]} />
       <FilterSheet
         visible={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -285,6 +308,8 @@ function Loading() {
 }
 
 const styles = StyleSheet.create({
+  header: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 2 },
+  statusCover: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 3 },
   topBar: { height: 52, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
   leftSlot: { width: 88, height: 44, justifyContent: 'center', paddingLeft: 6 },
   brandMark: { flex: 1, alignItems: 'center' },

@@ -1,10 +1,12 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { router, useScrollToTop } from 'expo-router';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useHideOnScroll } from '@/lib/navScroll';
 import { relativeTime } from '@/lib/format';
 import type { NotificationItem } from '@/lib/types';
 import { brand, statusMeta, tint, useTheme } from '@/theme';
@@ -41,6 +43,8 @@ export default function AlertsScreen() {
   const qc = useQueryClient();
   const listRef = useRef<FlatList<NotificationItem>>(null);
   useScrollToTop(listRef);
+  const tabBarHeight = useBottomTabBarHeight();
+  const hideOnScroll = useHideOnScroll();
 
   const q = useInfiniteQuery({
     queryKey: ['notifications', user?.id],
@@ -78,7 +82,7 @@ export default function AlertsScreen() {
 
   if (!user && !loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ flex: 1, backgroundColor: colors.bg, paddingBottom: tabBarHeight }}>
         <ScreenHeader title="Alerts" />
         <GuestPrompt icon="notifications-outline" title="Stay in the loop" body="Sign in to hear when people upvote, comment on or endorse your posts, and when their status changes." />
       </View>
@@ -102,6 +106,9 @@ export default function AlertsScreen() {
         data={items}
         keyExtractor={(n) => n.id}
         renderItem={({ item }) => <Row n={item} onPress={() => open(item)} />}
+        {...hideOnScroll}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 16 }}
+        scrollIndicatorInsets={{ bottom: tabBarHeight }}
         ListEmptyComponent={
           q.isLoading ? (
             <View>

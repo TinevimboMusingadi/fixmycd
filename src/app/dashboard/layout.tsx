@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useHideOnScroll } from '@/lib/hide-on-scroll';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import TrendingSidebar from '../../components/TrendingSidebar';
@@ -63,6 +64,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const isAuthenticated = !!currentUser;
   // Don't flash the guest notice while the session is still loading.
   const isReadOnly = !loadingUser && !isAuthenticated;
+  // Phones: slide the header and tab bar away while scrolling down (shown again on scroll up).
+  const navHidden = useHideOnScroll(pathname, '(max-width: 768px)', !isModalOpen);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -97,7 +100,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
 
   return (
-    <div className={`app-container ${isAnalytics ? 'analytics-mode' : ''}`}>
+    <div className={`app-container ${isAnalytics ? 'analytics-mode' : ''} ${navHidden ? 'nav-hidden' : ''}`}>
       <aside className="app-sidebar">
         <Link href="/" className="app-sidebar-logo">
           <img src="/logo.svg" alt="FixMyDistrict" />

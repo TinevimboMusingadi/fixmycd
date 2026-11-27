@@ -1,6 +1,6 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
+import React, { useContext, useState } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BottomTabBarHeightCallbackContext, Tabs, type BottomTabBarProps } from 'expo-router/js-tabs';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import { brand, useTheme } from '@/theme';
 import { useAuth } from '@/lib/auth';
 import { useUnreadCount } from '@/lib/unread';
 import { haptic } from '@/lib/hooks';
+import { NavScrollProvider, useNavProgress } from '@/lib/navScroll';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -23,12 +24,27 @@ function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
   const { colors } = useTheme();
   const { requireAuth } = useAuth();
   const unread = useUnreadCount();
+  // The bar floats over the screens and slides down while the user scrolls down a list.
+  const progress = useNavProgress();
+  const reportHeight = useContext(BottomTabBarHeightCallbackContext);
+  const [height, setHeight] = useState(56 + Math.max(insets.bottom, 8));
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [0, height + 2] });
 
   return (
-    <View
+    <Animated.View
+      onLayout={(e) => {
+        const h = e.nativeEvent.layout.height;
+        setHeight(h);
+        reportHeight?.(h);
+      }}
       style={[
         styles.bar,
-        { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.tabBar, borderTopColor: colors.border },
+        {
+          paddingBottom: Math.max(insets.bottom, 8),
+          backgroundColor: colors.tabBar,
+          borderTopColor: colors.border,
+          transform: [{ translateY }],
+        },
       ]}
     >
       {state.routes.map((route, index) => {
@@ -88,24 +104,34 @@ function TabBar({ state, emitter, navigateToTab, insets }: BottomTabBarProps) {
           </Pressable>
         );
       })}
-    </View>
+    </Animated.View>
   );
 }
 
 export default function TabsLayout() {
   return (
-    <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="explore" />
-      <Tabs.Screen name="post" />
-      <Tabs.Screen name="alerts" />
-      <Tabs.Screen name="account" />
-    </Tabs>
+    <NavScrollProvider>
+      <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false }}>
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="explore" />
+        <Tabs.Screen name="post" />
+        <Tabs.Screen name="alerts" />
+        <Tabs.Screen name="account" />
+      </Tabs>
+    </NavScrollProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 6 },
+  bar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 6,
+  },
   item: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 48, gap: 2 },
   label: { fontSize: 10.5, letterSpacing: 0.1 },
   fabWrap: {
