@@ -1,11 +1,13 @@
 import React from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { router } from 'expo-router';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { ME_KEY, useAuth } from '@/lib/auth';
+import { useHideOnScroll } from '@/lib/navScroll';
 import { API_BASE_URL, webUrl } from '@/lib/config';
 import { handleFor } from '@/lib/format';
 import { brand, radius, tint, useTheme, type ThemePreference } from '@/theme';
@@ -23,6 +25,8 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default function AccountScreen() {
   const { colors } = useTheme();
+  const tabBarHeight = useBottomTabBarHeight();
+  const hideOnScroll = useHideOnScroll();
   const { user, isAdmin, logout } = useAuth();
   const qc = useQueryClient();
 
@@ -52,7 +56,11 @@ export default function AccountScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScreenHeader title="Account" />
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView
+        {...hideOnScroll}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 40 }}
+        scrollIndicatorInsets={{ bottom: tabBarHeight }}
+      >
         {user ? (
           <View style={styles.profile}>
             <Avatar name={user.displayName} seed={user.id} size={64} />

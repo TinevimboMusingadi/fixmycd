@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import * as Location from 'expo-location';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -22,6 +23,8 @@ const DEFAULT_VIEW = { lat: 30, lng: -40, zoom: 2 };
 export default function ExploreScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  // The tab bar floats over screens; keep the map's controls above it.
+  const tabBarHeight = useBottomTabBarHeight();
   const mapRef = useRef<LeafletMapHandle>(null);
   const loc = useCurrentLocation();
   const [bounds, setBounds] = useState<MapBounds | null>(null);
@@ -69,7 +72,7 @@ export default function ExploreScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg, marginBottom: tabBarHeight }}>
       <LeafletMap
         ref={mapRef}
         style={StyleSheet.absoluteFill}

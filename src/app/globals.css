@@ -3152,3 +3152,26 @@ a, button, label, select, summary { touch-action: manipulation; }
   .install-card li { margin-bottom: 4px !important; }
   .install-cta { margin-bottom: 16px; }
 }
+
+/* ===== Hide-on-scroll navigation (phones) =====
+   Scrolling down slides the sticky header up and the tab bar down; scrolling up brings them back.
+   The class is toggled by useHideOnScroll in the dashboard layout. */
+@media (max-width: 768px) {
+  .app-sidebar,
+  .feed-header,
+  .fab,
+  .feed-toast {
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: transform;
+  }
+  .nav-hidden .app-sidebar { transform: translateY(100%); }
+  .nav-hidden .feed-header { transform: translateY(calc(-100% - 1px)); }
+  .nav-hidden .fab,
+  .nav-hidden .feed-toast { transform: translateY(var(--tabbar-h)); }
+  /* Keep the bars put while the keyboard or a field is in use. */
+  .nav-hidden:has(input:focus, textarea:focus, select:focus) .app-sidebar,
+  .nav-hidden:has(input:focus, textarea:focus, select:focus) .feed-header { transform: none; }
+}
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .app-sidebar, .feed-header, .fab, .feed-toast { transition: none; }
+}
