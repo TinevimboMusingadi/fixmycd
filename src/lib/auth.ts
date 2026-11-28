@@ -182,6 +182,14 @@ export async function requireModerator(): Promise<SessionUser | NextResponse> {
   return user;
 }
 
+/** Viewers are read-only accounts: they can browse, upvote and flag, but not post, comment or upload. */
+export function canContribute(role: string) {
+  return role !== 'viewer';
+}
+
+export const readOnlyAccount = () =>
+  NextResponse.json({ error: 'Your account is read-only. Ask an admin for posting access.' }, { status: 403 });
+
 export function isAuthError(value: SessionUser | NextResponse): value is NextResponse {
   return value instanceof NextResponse;
 }

@@ -28,8 +28,9 @@ export async function POST(
 
     const target =
       targetType === 'report'
-        ? await db.select({ id: reports.id }).from(reports).where(eq(reports.id, targetId)).limit(1)
-        : await db.select({ id: comments.id }).from(comments).where(eq(comments.id, targetId)).limit(1);
+        ? await db.select({ id: reports.id }).from(reports).where(and(eq(reports.id, targetId), eq(reports.isHidden, false))).limit(1)
+        : await db.select({ id: comments.id }).from(comments).where(and(eq(comments.id, targetId), eq(comments.isHidden, false))).limit(1);
+    // Hidden items answer like missing ones, so flagging can't confirm they exist.
     if (target.length === 0) return notFound('Content not found');
 
     // One open flag per person per item.

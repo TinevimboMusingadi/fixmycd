@@ -31,6 +31,8 @@ export default defineConfig({
       DATABASE_URL: urlForDatabase(E2E_DB),
       NODE_ENV: 'production',
       RESEND_API_KEY: '',
+      // The demo $1 checkout is off in production unless asked for; the e2e suite covers it.
+      PAYMENTS_DEMO: '1',
     },
   },
 });

@@ -80,7 +80,9 @@ export const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(function
       <WebView
         ref={webRef}
         source={{ html, baseUrl: MAP_BASE_URL }}
-        originWhitelist={['*']}
+        originWhitelist={['about:*', MAP_BASE_URL]}
+        // The map never navigates; refuse any attempt to load another page inside it.
+        onShouldStartLoadWithRequest={(req) => req.url.startsWith('about:') || req.url.startsWith(MAP_BASE_URL)}
         onMessage={onMessage}
         javaScriptEnabled
         domStorageEnabled

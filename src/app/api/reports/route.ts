@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { reports, reportStatusHistory } from '@/db/schema';
 import crypto from 'crypto';
-import { getSessionUser } from '@/lib/auth';
+import { canContribute, getSessionUser, readOnlyAccount } from '@/lib/auth';
 import { containsBlockedContent } from '@/lib/content-filter';
 import { fetchReportsWithCounts } from '@/lib/reports';
 import { resolveInfrastructure } from '@/lib/categories';
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     if (!sessionUser) {
       return NextResponse.json({ error: 'Unauthorized. Please log in to post issues.' }, { status: 401 });
     }
+    if (!canContribute(sessionUser.role)) return readOnlyAccount();
 
     const limited = await enforceRateLimit('report', sessionUser.id);
     if (limited) return limited;

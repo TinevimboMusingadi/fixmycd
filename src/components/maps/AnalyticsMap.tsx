@@ -163,11 +163,23 @@ export default function AnalyticsMap({
       area = areaMap.get(k);
       if (area) break;
     }
-    const label = props?.name || props?.id || 'Area';
-    const html = area
-      ? `<strong>${label}</strong><br/>${metric}: ${metricValue(area, metric).toLocaleString(undefined, { maximumFractionDigits: 2 })}<br/>Posts: ${area.count}`
-      : `<strong>${label}</strong><br/>No matching posts`;
-    layer.bindPopup(html);
+    const label = String(props?.name || props?.id || 'Area');
+    // Built from DOM text nodes, never an HTML string: labels come from outside data and
+    // the metric from the URL, so neither may be parsed as markup.
+    const lines = area
+      ? [`${metric}: ${metricValue(area, metric).toLocaleString(undefined, { maximumFractionDigits: 2 })}`, `Posts: ${area.count}`]
+      : ['No matching posts'];
+    layer.bindPopup(() => {
+      const box = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = label;
+      box.appendChild(title);
+      for (const line of lines) {
+        box.appendChild(document.createElement('br'));
+        box.appendChild(document.createTextNode(line));
+      }
+      return box;
+    });
   };
 
   return (

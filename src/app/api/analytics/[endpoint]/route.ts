@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ endp
     const user = await requireUser();
     if (isAuthError(user)) return user;
     const { endpoint } = await params;
-    return await analyticsEndpointResponse(request, endpoint, { isAdmin: isAdmin(user.role) });
+    return await analyticsEndpointResponse(request, endpoint, { isAdmin: isAdmin(user.role), userId: user.id });
   } catch (error: unknown) {
     return serverError(error, 'analytics/[endpoint]');
   }

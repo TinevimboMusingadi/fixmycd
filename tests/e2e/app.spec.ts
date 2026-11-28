@@ -127,7 +127,12 @@ test('security headers are sent', async ({ request }) => {
   const h = res.headers();
   expect(h['x-frame-options']).toBe('DENY');
   expect(h['x-content-type-options']).toBe('nosniff');
-  expect(h['content-security-policy-report-only']).toContain("frame-ancestors 'none'");
+  // Enforced (not report-only), with a per-request nonce and no inline-script escape hatch.
+  const csp = h['content-security-policy'];
+  expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).toMatch(/script-src 'self' 'nonce-[A-Za-z0-9+/=]+' 'strict-dynamic'/);
+  expect(csp).not.toMatch(/script-src[^;]*'unsafe-inline'/);
+  expect(h['content-security-policy-report-only']).toBeUndefined();
   expect(h['x-powered-by']).toBeUndefined();
 });
 

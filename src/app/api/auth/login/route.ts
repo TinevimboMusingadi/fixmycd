@@ -6,11 +6,9 @@ import bcrypt from 'bcryptjs';
 import { createSession } from '@/lib/auth';
 import { clientIp, parseJsonBody, serverError } from '@/lib/http';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { dummyPasswordHash, enforceAccountLimits } from '@/lib/password';
 import { loginSchema } from '@/lib/validation';
 
-// Compared against when the email is unknown so response time doesn't reveal
-// whether an account exists.
-const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
 const invalidCredentials = () =>
   NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
@@ -26,7 +24,7 @@ export async function POST(request: Request) {
     }
     const { email, password } = parsed.data;
 
-    const limitedByAccount = await enforceRateLimit('loginByAccount', email);
+    const limitedByAccount = await enforceAccountLimits(email, clientIp(request));
     if (limitedByAccount) return limitedByAccount;
 
     // Case-insensitive so accounts created before email normalization still match.
@@ -44,7 +42,7 @@ export async function POST(request: Request) {
       .where(sql`lower(${users.email}) = ${email}`)
       .limit(1);
 
-    const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
+    const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? dummyPasswordHash());
     if (!user || !user.passwordHash || !passwordOk) return invalidCredentials();
 
     // Account state is only revealed to someone who knows the password.

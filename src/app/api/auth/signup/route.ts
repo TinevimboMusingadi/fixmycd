@@ -28,11 +28,11 @@ export async function POST(request: Request) {
       .where(sql`lower(${users.email}) = ${email}`)
       .limit(1);
 
-    // Same response whether or not the address is already registered, so the
-    // signup form cannot be used to discover who has an account.
+    // Same response, and the same work, whether or not the address is already registered,
+    // so neither the message nor the response time reveals who has an account.
+    const passwordHash = await bcrypt.hash(password, PASSWORD_HASH_COST);
+    const ethics = await getCurrentEthics();
     if (!existing) {
-      const passwordHash = await bcrypt.hash(password, PASSWORD_HASH_COST);
-      const ethics = await getCurrentEthics();
       await db
         .insert(users)
         .values({

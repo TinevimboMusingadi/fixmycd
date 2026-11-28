@@ -5,11 +5,14 @@ import { demoPayments } from '@/db/schema';
 import { getSessionUser } from '@/lib/auth';
 import { badRequest, clientIp, parseJsonBody, serverError } from '@/lib/http';
 import { enforceRateLimit } from '@/lib/rate-limit';
-import { checkDemoCard, donationSchema } from '@/lib/payments-demo';
+import { checkDemoCard, donationSchema, PAYMENTS_DISABLED_MESSAGE, paymentsDemoEnabled } from '@/lib/payments-demo';
 
 /** Donation (DEMO — no real charge). Anyone can give; signed-in donors are linked to their account. */
 export async function POST(request: Request) {
   try {
+    if (!paymentsDemoEnabled()) {
+      return NextResponse.json({ error: PAYMENTS_DISABLED_MESSAGE, code: 'payments_disabled' }, { status: 403 });
+    }
     const limited = await enforceRateLimit('payment', clientIp(request));
     if (limited) return limited;
 

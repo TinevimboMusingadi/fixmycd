@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { isCrossSiteMutation } from './lib/csrf';
+import { buildCsp, newNonce } from './lib/csp';
 
 // Must match SESSION_COOKIE in src/lib/auth.ts. The proxy only uses it to
 // decide whether to redirect to /login; authorization happens server-side.
@@ -34,9 +35,28 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  // Pages: enforced CSP with a per-request nonce. Next reads the nonce from the request's
+  // CSP header and stamps it on its scripts; the root layout uses x-nonce for its own.
+  const nonce = newNonce();
+  const csp = buildCsp(nonce, { dev: process.env.NODE_ENV === 'development' });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set('Content-Security-Policy', csp);
+  return response;
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/:path*'],
+  matcher: [
+    '/api/:path*',
+    {
+      // Every page except static files and prefetches (which carry no scripts).
+      source: '/((?!api|_next/static|_next/image|favicon.ico|sw.js|manifest.json|icons/|.*\\.(?:png|svg|jpg|jpeg|webp|ico|txt|xml|js|css|woff2?)$).*)',
+      missing: [
+        { type: 'header', key: 'next-router-prefetch' },
+        { type: 'header', key: 'purpose', value: 'prefetch' },
+      ],
+    },
+  ],
 };

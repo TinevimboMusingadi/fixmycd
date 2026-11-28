@@ -7,9 +7,9 @@ import { demoPayments, users } from '@/db/schema';
 import { createSession } from '@/lib/auth';
 import { badRequest, clientIp, parseJsonBody, serverError } from '@/lib/http';
 import { enforceRateLimit } from '@/lib/rate-limit';
-import { VERIFICATION_AMOUNT_CENTS, checkDemoCard, verifyPaymentSchema } from '@/lib/payments-demo';
+import { dummyPasswordHash, enforceAccountLimits } from '@/lib/password';
+import { VERIFICATION_AMOUNT_CENTS, checkDemoCard, verifyPaymentSchema, PAYMENTS_DISABLED_MESSAGE, paymentsDemoEnabled } from '@/lib/payments-demo';
 
-const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 const invalidCredentials = () => NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
 
 /**
@@ -20,6 +20,9 @@ const invalidCredentials = () => NextResponse.json({ error: 'Invalid email or pa
  */
 export async function POST(request: Request) {
   try {
+    if (!paymentsDemoEnabled()) {
+      return NextResponse.json({ error: PAYMENTS_DISABLED_MESSAGE, code: 'payments_disabled' }, { status: 403 });
+    }
     const limited = await enforceRateLimit('payment', clientIp(request));
     if (limited) return limited;
 
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
     if (!parsed.ok) return parsed.response;
     const { email, password, card } = parsed.data;
 
-    const limitedByAccount = await enforceRateLimit('loginByAccount', email);
+    const limitedByAccount = await enforceAccountLimits(email, clientIp(request));
     if (limitedByAccount) return limitedByAccount;
 
     const [user] = await db
@@ -35,7 +38,7 @@ export async function POST(request: Request) {
       .from(users)
       .where(sql`lower(${users.email}) = ${email}`)
       .limit(1);
-    const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
+    const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? dummyPasswordHash());
     if (!user || !user.passwordHash || !passwordOk) return invalidCredentials();
 
     if (user.disabledAt) return NextResponse.json({ error: 'Account has been disabled' }, { status: 403 });

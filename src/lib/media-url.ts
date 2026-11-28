@@ -6,9 +6,25 @@
 
 export type MediaKind = 'image' | 'video' | 'audio';
 
-const TRUSTED_HOSTS: { host: RegExp; path?: RegExp }[] = [
+const ANY_VERCEL_BLOB = /^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/;
+
+/**
+ * This deployment's own Blob store host. Any Vercel customer can host files on a
+ * *.public.blob.vercel-storage.com name, so on the server only our store is trusted:
+ * BLOB_PUBLIC_HOST, or the store id inside BLOB_READ_WRITE_TOKEN
+ * (vercel_blob_rw_<storeId>_<secret>). Unknown (local dev, tests, browser) falls back
+ * to the general pattern; stored URLs were already checked on the server.
+ */
+export function ownBlobHost(env: Record<string, string | undefined> = typeof process !== 'undefined' ? process.env : {}): string | null {
+  const explicit = env.BLOB_PUBLIC_HOST?.trim().toLowerCase();
+  if (explicit) return explicit;
+  const m = /^vercel_blob_rw_([a-z0-9]+)_/i.exec(env.BLOB_READ_WRITE_TOKEN ?? '');
+  return m ? `${m[1].toLowerCase()}.public.blob.vercel-storage.com` : null;
+}
+
+const TRUSTED_HOSTS: { host: RegExp | ((host: string) => boolean); path?: RegExp }[] = [
   // Vercel Blob (where /api/upload stores files)
-  { host: /^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/ },
+  { host: (h) => { const own = ownBlobHost(); return own ? h === own : ANY_VERCEL_BLOB.test(h); } },
   // Stock photos used by the demo seed data and CSV import
   { host: /^images\.unsplash\.com$/ },
   // Street View stills written by scripts/enrich-nbi-streetview.ts
@@ -29,7 +45,9 @@ export function isTrustedRemoteMediaUrl(value: string): boolean {
   }
   if (url.protocol !== 'https:' || url.username || url.password || url.port) return false;
   const host = url.hostname.toLowerCase();
-  return TRUSTED_HOSTS.some((t) => t.host.test(host) && (!t.path || t.path.test(url.pathname)));
+  return TRUSTED_HOSTS.some(
+    (t) => (typeof t.host === 'function' ? t.host(host) : t.host.test(host)) && (!t.path || t.path.test(url.pathname))
+  );
 }
 
 /** Allowed media URL: an https URL on a trusted host, or a small base64 data: URL of the right kind. */

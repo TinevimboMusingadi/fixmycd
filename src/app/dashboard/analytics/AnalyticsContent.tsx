@@ -32,6 +32,12 @@ const AnalyticsMap = dynamic(() => import('@/components/maps/AnalyticsMap'), {
   loading: () => <div className="feed-empty">Loading map…</div>,
 });
 
+/** Allowed values for filters that pick from a fixed list (URL input is untrusted). */
+const URL_CHOICES: Partial<Record<keyof typeof DEFAULT_FILTERS, string[]>> = {
+  metric: ['count', 'criticalCount', 'avgSeverity', 'unresolvedRate', 'estimatedCost', 'peopleAffected'],
+  mapLevel: ['state', 'county', 'metro', 'city', 'tract', 'congressional', 'school'],
+};
+
 const DEFAULT_FILTERS = {
   datePreset: 'year',
   startDate: '',
@@ -101,8 +107,13 @@ export default function AnalyticsContent() {
   const [filters, setFilters] = useState(() => {
     const next = { ...DEFAULT_FILTERS };
     searchParams.forEach((v, k) => {
-      if (k in next) (next as Record<string, string>)[k] = v;
+      if (k in next) (next as Record<string, string>)[k] = v.slice(0, 200);
     });
+    // Choice-type filters only accept known values; anything else falls back to the default.
+    for (const [key, allowed] of Object.entries(URL_CHOICES)) {
+      const k = key as keyof typeof next;
+      if (allowed && !allowed.includes(next[k])) next[k] = DEFAULT_FILTERS[k];
+    }
     return next;
   });
   const filtersHydrated = true;

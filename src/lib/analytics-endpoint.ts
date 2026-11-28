@@ -16,6 +16,8 @@ import {
 import type { AnalyticsFilters } from '@/lib/analytics-types';
 import { fetchTigerBoundaries, mapLevelToTigerLayer } from '@/lib/geo/tigerweb';
 import { withCache } from '@/lib/analytics-cache';
+import { stableKey } from '@/lib/lru';
+import { enforceRateLimit } from '@/lib/rate-limit';
 
 /** Endpoints only admins may call: they are about individual reporters. */
 export const ADMIN_ONLY_ANALYTICS_ENDPOINTS: ReadonlySet<string> = new Set(['users', 'quality']);
@@ -26,7 +28,7 @@ const ADMIN_ONLY_GROUP_BY: ReadonlySet<string> = new Set(['reporter']);
 /** Most rows a non-admin can export in one CSV. */
 export const MEMBER_CSV_LIMIT = 1000;
 
-export type AnalyticsViewer = { isAdmin: boolean };
+export type AnalyticsViewer = { isAdmin: boolean; userId?: string };
 
 /**
  * Filters a non-admin may use. Filtering by reporter would reveal which posts belong
@@ -49,6 +51,10 @@ export async function analyticsEndpointResponse(
   endpoint: string,
   viewer: AnalyticsViewer,
 ): Promise<NextResponse> {
+  if (viewer.userId) {
+    const limited = await enforceRateLimit('analytics', viewer.userId);
+    if (limited) return limited;
+  }
   if (!viewer.isAdmin && ADMIN_ONLY_ANALYTICS_ENDPOINTS.has(endpoint)) {
     return NextResponse.json({ error: 'Only admins can see reporter details' }, { status: 403 });
   }
@@ -59,7 +65,9 @@ export async function analyticsEndpointResponse(
   const generatedAt = new Date().toISOString();
   const units = { cost: 'USD', distance: 'km', age: 'days', rate: 'ratio_0_1' };
   // Members and admins can see different data for the same query string.
-  const cacheKey = `analytics:${viewer.isAdmin ? 'admin' : 'member'}:${endpoint}:${searchParams.toString()}`;
+  // Keyed on the parsed filters (unknown params dropped, keys sorted), so junk query
+  // parameters can't mint new cache entries.
+  const cacheKey = `analytics:${viewer.isAdmin ? 'admin' : 'member'}:${endpoint}:${stableKey({ filters, box: ['west', 'south', 'east', 'north'].map((k) => Number(searchParams.get(k)).toFixed(2)) })}`;
   const cachedMeta = { filters, generatedAt, units, cached: true };
 
   switch (endpoint) {
