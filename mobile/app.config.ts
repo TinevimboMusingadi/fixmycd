@@ -31,6 +31,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     permissions: ['ACCESS_COARSE_LOCATION', 'ACCESS_FINE_LOCATION', 'CAMERA'],
     blockedPermissions: ['android.permission.RECORD_AUDIO'],
     predictiveBackGestureEnabled: false,
+    // Keep app data (including the secure-storage session) out of device and cloud backups.
+    allowBackup: false,
   },
   web: {
     favicon: './assets/favicon.png',
@@ -71,5 +73,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   extra: {
     apiBaseUrl: (process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_BASE_URL).replace(/\/+$/, ''),
+    // Clerk's publishable key is public by design (it only identifies the Clerk app). Unset = no social sign-in.
+    clerkPublishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '',
   },
 });

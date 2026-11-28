@@ -92,11 +92,15 @@ const cardField = z.object({
   name: z.string().max(100),
 });
 
-export const verifyPaymentSchema = z.object({
-  email: z.preprocess((v) => (typeof v === 'string' ? v.trim().toLowerCase() : v), z.string().min(1).max(254)),
-  password: z.string().min(1).max(1024),
-  card: cardField,
-});
+export const verifyPaymentSchema = z.union([
+  z.object({
+    email: z.preprocess((v) => (typeof v === 'string' ? v.trim().toLowerCase() : v), z.string().min(1).max(254)),
+    password: z.string().min(1).max(1024),
+    card: cardField,
+  }),
+  // Accounts made through Clerk (Google, LinkedIn, Facebook) have no password: they prove who they are with their Clerk session.
+  z.object({ clerkToken: z.string().min(20).max(4096), card: cardField }),
+]);
 
 export const donationSchema = z.object({
   amountCents: z.number().int().min(MIN_DONATION_CENTS).max(MAX_DONATION_CENTS),

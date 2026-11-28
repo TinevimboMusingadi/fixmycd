@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brand, tint, useTheme } from '@/theme';
 import { Button, Icon, type IconName, IconButton, T } from '@/components/ui';
+import { SocialButtons } from '@/components/SocialButtons';
 
 const POINTS: { icon: IconName; title: string; body: string }[] = [
   { icon: 'camera-outline', title: 'Post what you see', body: 'Potholes, outages, broken lights — pinned on the map with a photo.' },
@@ -51,6 +52,7 @@ export default function Welcome() {
         </View>
       </View>
       <View style={[styles.actions, { paddingBottom: insets.bottom + 16 }]}>
+        <SocialButtons />
         <Button title="Create account" size="lg" onPress={() => router.push('/auth/signup')} />
         <Button title="Sign in" size="lg" variant="secondary" onPress={() => router.push('/auth/login')} />
         <Pressable onPress={closeToFeed} accessibilityRole="button" style={styles.guest}>

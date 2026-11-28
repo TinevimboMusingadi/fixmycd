@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import { AppThemeProvider, useTheme } from '@/theme';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { ClerkGate } from '@/lib/clerk';
 import { ApiError } from '@/lib/api';
 import { ToastHost } from '@/components/Toast';
 
@@ -77,9 +78,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <AppThemeProvider>
-          <AuthProvider>
-            <Navigator />
-          </AuthProvider>
+          <ClerkGate>
+            <AuthProvider>
+              <Navigator />
+            </AuthProvider>
+          </ClerkGate>
         </AppThemeProvider>
       </QueryClientProvider>
     </SafeAreaProvider>

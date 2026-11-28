@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useCurrentUser } from '@/components/CurrentUserContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { SignedInDevices } from '@/components/SignedInDevices';
 
 export default function ProfilePage() {
   const { user, loading, refresh } = useCurrentUser();
@@ -95,6 +96,7 @@ export default function ProfilePage() {
           <p>Light is the default. Choose dark, or follow your device setting. Saved on this device.</p>
           <ThemeToggle />
         </section>
+        <SignedInDevices />
       </div>
     </div>
   );

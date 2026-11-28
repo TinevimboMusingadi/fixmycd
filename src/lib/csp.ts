@@ -6,7 +6,10 @@ import { ownBlobHost } from './media-url';
  * markup can't execute script even if some other bug lets it into the page.
  * Hosts: map tiles (OpenStreetMap), Google Fonts, and the media allowlist in src/lib/media-url.ts.
  */
-export function buildCsp(nonce: string, opts: { dev?: boolean; extraConnect?: string[]; extraScript?: string[]; extraFrame?: string[] } = {}): string {
+export function buildCsp(
+  nonce: string,
+  opts: { dev?: boolean; extraConnect?: string[]; extraScript?: string[]; extraFrame?: string[]; extraImg?: string[] } = {}
+): string {
   const blob = ownBlobHost();
   const blobSrc = blob ? `https://${blob}` : 'https://*.public.blob.vercel-storage.com';
   const directives = [
@@ -16,7 +19,7 @@ export function buildCsp(nonce: string, opts: { dev?: boolean; extraConnect?: st
     // Inline style attributes (React style={...}, Leaflet) need 'unsafe-inline'; styles can't run code.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
-    `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://images.unsplash.com ${blobSrc} https://maps.googleapis.com`,
+    `img-src 'self' data: blob: https://*.tile.openstreetmap.org https://images.unsplash.com ${blobSrc} https://maps.googleapis.com${(opts.extraImg ?? []).map((h) => ` ${h}`).join('')}`,
     `media-src 'self' data: blob: ${blobSrc}`,
     `connect-src 'self'${(opts.extraConnect ?? []).map((h) => ` ${h}`).join('')}`,
     `frame-src 'self'${(opts.extraFrame ?? []).map((h) => ` ${h}`).join('')}`,
@@ -29,6 +32,21 @@ export function buildCsp(nonce: string, opts: { dev?: boolean; extraConnect?: st
   ];
   if (!opts.dev) directives.push('upgrade-insecure-requests');
   return directives.join('; ');
+}
+
+/**
+ * Extra hosts for Clerk's sign-in widget (only on the sign-in pages, and only when Clerk is set up):
+ * its Frontend API, avatars, and Cloudflare's bot check that Clerk uses on sign-up.
+ */
+export function clerkCspHosts(frontendApiHost: string | null) {
+  if (!frontendApiHost) return {};
+  const fapi = `https://${frontendApiHost}`;
+  return {
+    extraScript: [fapi, 'https://challenges.cloudflare.com'],
+    extraConnect: [fapi, 'https://clerk-telemetry.com'],
+    extraFrame: ['https://challenges.cloudflare.com'],
+    extraImg: ['https://img.clerk.com'],
+  };
 }
 
 export function newNonce(): string {

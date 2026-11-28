@@ -24,6 +24,36 @@ handles untrusted input. Keep this up to date when changing any of it.
   already registered.
 - **Login** returns the same error for unknown emails and wrong passwords,
   and only reveals "disabled"/"pending" after a correct password.
+- **Session lifetimes**: web sessions last at most 7 days and end after 3 days
+  without use; the phone app's last 30 days and end after 14 idle days. Each
+  session records how it was created (password, $1 check, Google/LinkedIn/
+  Facebook) and a short device label. People can see their **Signed-in
+  devices** (Account › Profile) and sign out one or all others
+  (`/api/auth/sessions`).
+- **Phone app**: login endpoints called with `X-Client: mobile-app` return the
+  token instead of setting a cookie. The app keeps it in the iOS Keychain /
+  Android Keystore-backed storage (`WHEN_UNLOCKED_THIS_DEVICE_ONLY`, never in
+  backups: `allowBackup=false`) and sends `Authorization: Bearer`. Any 401
+  wipes it. Nothing secret ships in the app (a unit test scans `mobile/` for
+  keys and server-only settings).
+- **Social sign-in (Clerk)**: Clerk proves identity (Google, LinkedIn,
+  Facebook, email code, SMS); `/api/auth/clerk` verifies the Clerk token
+  server-side, requires a verified email, links or creates the account and
+  issues *our* session — Clerk never authorizes API calls. New social accounts
+  agree to the Code of Ethics, verify a phone number, and stay `pending` until
+  the $1 check or an admin approves them. A signed Clerk webhook disables the
+  account when the Clerk user is deleted. Setup: `docs/AUTH.md`.
+- **Timing**: unknown emails are checked against a dummy hash of the same cost,
+  and signup always hashes, so response times don't reveal which emails exist.
+- **Rate limits** key on the client IP only where a trusted proxy sets it
+  (Vercel, or `TRUST_PROXY=1`); failed logins are limited per account+IP (10 /
+  15 min) with a higher per-account ceiling (50 / hour) so a stranger can't
+  lock the owner out.
+- **Content-Security-Policy** is enforced with a per-request nonce and
+  `strict-dynamic` (`src/proxy.ts`, `src/lib/csp.ts`); Clerk's hosts are only
+  allowed on the sign-in pages.
+- **Media**: uploads are checked for AI generation and stripped of EXIF/GPS
+  before storage — see `docs/MEDIA_INTEGRITY.md`.
 
 ## Roles
 
