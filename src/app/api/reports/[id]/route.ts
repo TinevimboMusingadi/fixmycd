@@ -33,6 +33,7 @@ export async function GET(
         audioUrl: reports.audioUrl,
         compassDirection: reports.compassDirection,
         aiSummary: reports.aiSummary,
+        mediaVerdict: reports.mediaVerdict,
         reviewNote: reports.reviewNote,
         featured: reports.featured,
         createdAt: reports.createdAt,

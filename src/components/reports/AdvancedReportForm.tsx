@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { MediaWarning, isWarning, type MediaIntegrity } from '../MediaIntegrity';
 import dynamic from 'next/dynamic';
 import { InAppMediaRecorder } from './InAppMediaRecorder';
 import type { ResolvedLocation } from '../PinPickerMap';
@@ -69,6 +70,9 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
   const [resolveToken, setResolveToken] = useState(0);
   const [photoGps, setPhotoGps] = useState<{ lat: number; lng: number; source: 'photo' | 'device' } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Real-time AI-media check results for the attached photo/video (warnings only; posting is allowed).
+  const [mediaWarnings, setMediaWarnings] = useState<Partial<Record<'image' | 'video', MediaIntegrity>>>({});
+  const captureToken = useRef<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [locationNote, setLocationNote] = useState<string | null>(null);
 
@@ -81,16 +85,22 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
   const types = infrastructureClass ? INFRASTRUCTURE_TAXONOMY[infrastructureClass] || [] : [];
   const steps = mode === 'quick' ? ['Issue', 'Location', 'Evidence'] : ['Issue', 'Location', 'Impact', 'Evidence', 'Review'];
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = async (file: File, opts: { captured?: boolean } = {}) => {
     setUploadError(null);
     const formData = new FormData();
     formData.append('file', file);
+    if (opts.captured && captureToken.current) formData.append('captureToken', captureToken.current);
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setUploadError(data.error || 'Upload failed');
         return null;
+      }
+      const kind = data.kind as string | undefined;
+      if (kind === 'image' || kind === 'video') {
+        const integrity = data.integrity as MediaIntegrity | undefined;
+        setMediaWarnings((w) => ({ ...w, [kind]: integrity && isWarning(integrity.verdict) ? integrity : undefined }));
       }
       return data.url as string;
     } catch {
@@ -144,7 +154,7 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
     const file = new File([blob], `recorded-${type}-${Date.now()}.${extension}`, { type: blob.type });
     setUploading(true);
     try {
-      const url = await uploadFile(file);
+      const url = await uploadFile(file, { captured: true });
       if (!url) return;
       if (type === 'photo') {
         setImageUrl(url);
@@ -595,7 +605,15 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => setShowRecorder(true)}
+                onClick={() => {
+                  // Ask for an in-app capture token while the camera opens (see media-integrity/capture).
+                  captureToken.current = null;
+                  fetch('/api/capture-token', { method: 'POST' })
+                    .then((r) => (r.ok ? r.json() : null))
+                    .then((d) => { captureToken.current = d?.token ?? null; })
+                    .catch(() => {});
+                  setShowRecorder(true);
+                }}
               >
                 🎥 Record Media In-App
               </button>
@@ -680,6 +698,7 @@ export default function AdvancedReportForm({ onClose, onSuccess }: ReportFormPro
               </div>
             )}
             {uploadError && <p className="field-error" role="alert">{uploadError}</p>}
+            {(['image', 'video'] as const).map((k) => mediaWarnings[k] && <MediaWarning key={k} kind={k} integrity={mediaWarnings[k]!} />)}
             {mode === 'advanced' && (
               <>
                 <div className="form-row">

@@ -4,7 +4,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../db';
 import { notifications, users } from '../db/schema';
 
-export type NotificationType = 'comment' | 'upvote' | 'status_change' | 'endorsement' | 'follow';
+export type NotificationType = 'comment' | 'upvote' | 'status_change' | 'endorsement' | 'follow' | 'media_review';
 
 /**
  * Run work after the response has been sent (emails, slow side effects), so a

@@ -123,8 +123,11 @@ export const api = {
     request<{ success: boolean }>('POST', `/api/reports/${encodeURIComponent(id)}/flag`, { body: { reason, targetType: 'report' } }),
 
   // --- Media & places ------------------------------------------------------
-  upload: async (file: { uri: string; name: string; mimeType: string }) => {
+  /** Short-lived token proving a photo is taken with the app's own camera (see the server's media-integrity/capture). */
+  captureToken: () => request<{ token: string }>('POST', '/api/capture-token'),
+  upload: async (file: { uri: string; name: string; mimeType: string }, captureToken?: string | null) => {
     const form = new FormData();
+    if (captureToken) form.append('captureToken', captureToken);
     if (Platform.OS === 'web') {
       const blob = await (await fetch(file.uri)).blob();
       form.append('file', blob, file.name);

@@ -16,6 +16,7 @@ export interface ReportListItem {
   videoUrl: string | null;
   audioUrl: string | null;
   aiSummary: string | null;
+  mediaVerdict?: string | null;
   featured: boolean;
   createdAt: string;
   submitterId: string;

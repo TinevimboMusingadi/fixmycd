@@ -12,7 +12,7 @@ interface Notification {
   reportId: string | null;
   actorDisplayName: string | null;
   reportTitle: string | null;
-  metadata: { from?: string; to?: string; severityLevel?: number } | null;
+  metadata: { from?: string; to?: string; severityLevel?: number; decision?: string; verdict?: string } | null;
 }
 
 interface Page {
@@ -102,6 +102,12 @@ export default function NotificationsPage() {
           </>
         ) : (
           <>Status changed on <em>{report}</em></>
+        );
+      case 'media_review':
+        return n.metadata?.decision === 'confirmed' ? (
+          <>A reviewer confirmed the media in <em>{report}</em> is AI-generated. It is now labelled, and this counts against your account.</>
+        ) : (
+          <>Checks flagged the media in <em>{report}</em> as possibly AI-generated. A reviewer will look at it.</>
         );
       default:
         return <>{actor} interacted with <em>{report}</em></>;

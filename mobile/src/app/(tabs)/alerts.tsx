@@ -32,6 +32,10 @@ function describe(n: NotificationItem): { icon: IconName; color: string; text: s
       const to = n.metadata?.to as string | undefined;
       return { icon: 'flag', color: to ? statusMeta(to).color : brand.yellow, text: `Your post is now ${to ? statusMeta(to).label.toLowerCase() : 'updated'}` };
     }
+    case 'media_review':
+      return n.metadata?.decision === 'confirmed'
+        ? { icon: 'warning', color: brand.red, text: 'A reviewer confirmed your post’s media is AI-generated. It is now labelled.' }
+        : { icon: 'warning', color: brand.yellow, text: 'Your post’s media was flagged as possibly AI-generated. A reviewer will check it.' };
     default:
       return { icon: 'notifications', color: brand.purpleStart, text: `${who} interacted with your post` };
   }

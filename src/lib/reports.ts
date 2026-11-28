@@ -118,6 +118,7 @@ export async function fetchReportsWithCounts(
       videoUrl: reports.videoUrl,
       audioUrl: reports.audioUrl,
       aiSummary: reports.aiSummary,
+      mediaVerdict: reports.mediaVerdict,
       featured: reports.featured,
       createdAt: reports.createdAt,
       submitterId: reports.submitterId,
