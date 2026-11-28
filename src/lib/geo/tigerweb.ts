@@ -1,3 +1,4 @@
+import { LruCache } from '../lru';
 /** TIGERweb boundary helpers — https://tigerweb.geo.census.gov */
 
 const TIGER_BASE = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb';
@@ -42,7 +43,7 @@ export interface BoundaryCollection {
   };
 }
 
-const boundaryCache = new Map<string, { expires: number; data: BoundaryCollection }>();
+const boundaryCache = new LruCache<BoundaryCollection>(300);
 
 export async function fetchTigerBoundaries(
   layer: TigerLayer,
@@ -50,9 +51,12 @@ export async function fetchTigerBoundaries(
   where?: string
 ): Promise<BoundaryCollection> {
   const cfg = LAYER_PATHS[layer];
-  const cacheKey = `${layer}:${JSON.stringify(bbox)}:${where || ''}`;
+  // Round the box so near-identical map views share an entry (and one upstream request).
+  const r = (n: number) => Math.round(n * 100) / 100;
+  const box = bbox ? { west: r(bbox.west), south: r(bbox.south), east: r(bbox.east), north: r(bbox.north) } : undefined;
+  const cacheKey = `${layer}:${JSON.stringify(box)}:${where || ''}`;
   const cached = boundaryCache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) return cached.data;
+  if (cached) return cached;
 
   const url = new URL(`${TIGER_BASE}/${cfg.service}/MapServer/${cfg.layerId}/query`);
   url.searchParams.set('where', where || '1=1');
@@ -104,7 +108,7 @@ export async function fetchTigerBoundaries(
         count: features.length,
       },
     };
-    boundaryCache.set(cacheKey, { expires: Date.now() + 1000 * 60 * 30, data });
+    boundaryCache.set(cacheKey, data, 1000 * 60 * 30);
     return data;
   } catch {
     return emptyCollection(layer);

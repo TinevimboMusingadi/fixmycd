@@ -126,7 +126,7 @@ export default function AdminPage() {
 
   const roleOptions = isSuper
     ? ['submitter', 'viewer', 'referee', 'admin', 'super_admin']
-    : ['submitter', 'viewer', 'referee', 'admin'];
+    : ['submitter', 'viewer', 'referee'];
   // Admins manage regular accounts; only a super_admin manages admins. Nobody edits themself.
   const canManage = (u: AdminUser) => u.id !== me!.id && (isSuper || !isAdminRole(u.role));
 

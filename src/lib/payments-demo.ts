@@ -11,6 +11,20 @@
 import { z } from 'zod';
 
 export const VERIFICATION_AMOUNT_CENTS = 100;
+
+/**
+ * The demo checkout activates pending accounts without a person reviewing them, so it is
+ * off in production unless PAYMENTS_DEMO=1 is set on purpose (demo deployments).
+ * Development and tests keep it on.
+ */
+export function paymentsDemoEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  if (env.PAYMENTS_DEMO === '1') return true;
+  if (env.PAYMENTS_DEMO === '0') return false;
+  return env.NODE_ENV !== 'production';
+}
+
+export const PAYMENTS_DISABLED_MESSAGE =
+  'Card verification is turned off on this site. An admin will review your account instead.';
 export const DEMO_TEST_CARD = '4242424242424242';
 export const DONATION_PRESETS_CENTS = [100, 500, 1000, 2500] as const;
 export const MIN_DONATION_CENTS = 100;
@@ -61,7 +75,7 @@ export function checkDemoCard(
   const number = digitsOnly(card.number);
 
   if (!passesLuhn(number)) errors.number = 'Enter a valid card number';
-  else if (number !== DEMO_TEST_CARD) errors.number = 'Demo mode: use the test card 4242 4242 4242 4242';
+  else if (number !== DEMO_TEST_CARD) errors.number = 'Demo mode: this card is not accepted. Use the test card shown above.';
 
   const expiry = parseExpiry(card.expiry, now);
   if (!expiry.ok) errors.expiry = expiry.error;

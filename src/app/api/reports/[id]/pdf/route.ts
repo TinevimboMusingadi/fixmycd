@@ -15,6 +15,7 @@ import { clientIp, notFound, serverError } from '@/lib/http';
 import { fetchImageForEmbedding } from '@/lib/media-fetch';
 import { formatPdfDate, toWinAnsi, wrapText } from '@/lib/pdf-text';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { getSessionUser, isModerator } from '@/lib/auth';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 const PAGE: [number, number] = [612, 792];
@@ -37,6 +38,9 @@ export async function GET(
       .where(and(eq(reports.id, id), eq(reports.isHidden, false)))
       .limit(1);
     if (!report) return notFound('Report not found');
+    // Moderator notes in the status history are for the submitter, not the public.
+    const viewer = await getSessionUser();
+    const showNotes = !!viewer && (viewer.id === report.submitterId || isModerator(viewer.role));
 
     const [locationRows, submitterRows, endorsementRows, commentRows, historyRows, upvoteRows] =
       await Promise.all([
@@ -198,7 +202,7 @@ export async function GET(
       section('Status Timeline');
       for (const h of [...historyRows].reverse()) {
         write(`${formatPdfDate(h.createdAt, true)}: ${h.fromStatus || 'new'} -> ${h.toStatus}`, { size: 10 });
-        if (h.note) write(h.note, { size: 9, color: [0.4, 0.4, 0.4], indent: 12 });
+        if (h.note && showNotes) write(h.note, { size: 9, color: [0.4, 0.4, 0.4], indent: 12 });
       }
     }
 

@@ -9,7 +9,8 @@ import { adminUserListQuery, adminUserPatchSchema } from '@/lib/validation';
 import { sendAccountDecisionEmail } from '@/lib/email';
 import { runAfterResponse } from '@/lib/notify';
 
-const ASSIGNABLE_BY_ADMIN = ['submitter', 'viewer', 'referee', 'admin'];
+// Granting admin is reserved to a super_admin, so one compromised admin can't mint more.
+const ASSIGNABLE_BY_ADMIN = ['submitter', 'viewer', 'referee'];
 
 const userListColumns = {
   id: users.id,

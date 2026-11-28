@@ -3,10 +3,10 @@ import { db } from '@/db';
 import { comments, reports, users } from '@/db/schema';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import crypto from 'crypto';
-import { getSessionUser } from '@/lib/auth';
+import { canContribute, getSessionUser, readOnlyAccount } from '@/lib/auth';
 import { containsBlockedContent } from '@/lib/content-filter';
 import { sendCommentNotification } from '@/lib/email';
-import { clientIp, notFound, parseJsonBody, serverError } from '@/lib/http';
+import { notFound, parseJsonBody, serverError } from '@/lib/http';
 import { createNotification, emailRecipient, runAfterResponse } from '@/lib/notify';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { unsubscribeUrlFor } from '@/lib/unsubscribe';
@@ -58,8 +58,9 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!canContribute(user.role)) return readOnlyAccount();
 
-    const limited = await enforceRateLimit('comment', `${user.id}:${clientIp(request)}`);
+    const limited = await enforceRateLimit('comment', user.id);
     if (limited) return limited;
 
     const parsed = await parseJsonBody(request, commentSchema);

@@ -1,27 +1,6 @@
 import type { NextConfig } from 'next';
 
-/**
- * Content-Security-Policy, sent as Report-Only first so nothing breaks while
- * violations are reviewed; switch the header name to enforce it.
- * Hosts: map tiles (OpenStreetMap), Google Fonts, and the media allowlist in
- * src/lib/media-url.ts.
- */
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://images.unsplash.com https://*.public.blob.vercel-storage.com https://maps.googleapis.com",
-  "media-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
-  "connect-src 'self'",
-  "worker-src 'self'",
-  "manifest-src 'self'",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-].join('; ');
-
+// The Content-Security-Policy is set per request (with a nonce) in src/proxy.ts via src/lib/csp.ts.
 const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
@@ -29,7 +8,6 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // The report form uses the camera, microphone and location of this site only.
   { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self), payment=(), usb=()' },
-  { key: 'Content-Security-Policy-Report-Only', value: contentSecurityPolicy },
 ];
 
 const nextConfig: NextConfig = {

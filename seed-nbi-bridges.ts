@@ -12,6 +12,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import { refuseInProduction } from './scripts/production-guard';
 import bcrypt from 'bcryptjs';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from './src/db';
@@ -27,6 +28,7 @@ import {
 } from './src/db/schema';
 
 dotenv.config();
+refuseInProduction('seed-nbi-bridges.ts');
 
 const DATASET = 'nbi-bridges-2026v14';
 const PASSWORD = 'password123';

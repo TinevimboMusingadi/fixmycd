@@ -3,6 +3,9 @@ import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { db } from '../src/db';
 import { users } from '../src/db/schema';
+import { refuseInProduction } from './production-guard';
+
+refuseInProduction('ensure-superadmin');
 
 async function main() {
   const email = 'superadmin@fixmydistrict.app';

@@ -37,6 +37,8 @@ type Case = {
 const adminOnly = { guest: 401, viewer: 403, submitter: 403, referee: 403, admin: 'ok', super_admin: 'ok' } as const;
 const moderators = { guest: 401, viewer: 403, submitter: 403, referee: 'ok', admin: 'ok', super_admin: 'ok' } as const;
 const anyUser = { guest: 401, viewer: 'ok', submitter: 'ok', referee: 'ok', admin: 'ok', super_admin: 'ok' } as const;
+// Viewer accounts are read-only: they can't post, comment or upload.
+const contributors = { ...anyUser, viewer: 403 } as const;
 
 const CASES: Case[] = [
   { name: 'GET admin/users', handler: adminUsers.GET, opts: () => ({ path: '/api/admin/users' }), expect: adminOnly },
@@ -53,10 +55,10 @@ const CASES: Case[] = [
   { name: 'GET notifications', handler: notifications.GET, opts: () => ({ path: '/api/notifications' }), expect: anyUser },
   { name: 'GET follows', handler: follows.GET, opts: () => ({}), expect: anyUser },
   { name: 'GET saved-searches', handler: savedSearches.GET, opts: () => ({}), expect: anyUser },
-  { name: 'POST upload (no file)', handler: upload.POST, opts: () => ({ method: 'POST', rawBody: new FormData() }), expect: { ...anyUser, viewer: 400, submitter: 400, referee: 400, admin: 400, super_admin: 400 } },
-  { name: 'POST reports', handler: reportsRoute.POST, opts: () => ({ method: 'POST', path: '/api/reports', body: { title: 'Broken light', latitude: 1, longitude: 1 } }), expect: anyUser },
+  { name: 'POST upload (no file)', handler: upload.POST, opts: () => ({ method: 'POST', rawBody: new FormData() }), expect: { ...anyUser, viewer: 403, submitter: 400, referee: 400, admin: 400, super_admin: 400 } },
+  { name: 'POST reports', handler: reportsRoute.POST, opts: () => ({ method: 'POST', path: '/api/reports', body: { title: 'Broken light', latitude: 1, longitude: 1 } }), expect: contributors },
   { name: 'POST upvote', handler: upvote.POST, opts: (id) => ({ method: 'POST', params: { id } }), expect: anyUser },
-  { name: 'POST comment', handler: comments.POST, opts: (id) => ({ method: 'POST', params: { id }, body: { body: 'Hello' } }), expect: anyUser },
+  { name: 'POST comment', handler: comments.POST, opts: (id) => ({ method: 'POST', params: { id }, body: { body: 'Hello' } }), expect: contributors },
   { name: 'POST flag', handler: flag.POST, opts: (id) => ({ method: 'POST', params: { id }, body: { reason: 'dup' } }), expect: anyUser },
 ];
 

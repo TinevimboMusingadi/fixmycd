@@ -19,6 +19,8 @@ import { resolveShareToken } from '@/lib/analytics-share';
 import { hashUserAgent, isLikelyBot, visitorHash } from '@/lib/hashing';
 import { getSessionUser } from '@/lib/auth';
 import { clientIp } from '@/lib/http';
+import { enforceRateLimit } from '@/lib/rate-limit';
+import { memberAnalyticsFilters } from '@/lib/analytics-endpoint';
 import type { AnalyticsFilters } from '@/lib/analytics-types';
 
 const VIEW_DEDUPE_WINDOW = '1 hour';
@@ -80,6 +82,8 @@ export async function GET(
   { params }: { params: Promise<{ token: string; endpoint: string }> }
 ) {
   try {
+    const limited = await enforceRateLimit('analytics', `public:${clientIp(request)}`);
+    if (limited) return limited;
     const { token, endpoint } = await params;
     const share = await resolveShareToken(token);
     if (!share) {
@@ -92,7 +96,8 @@ export async function GET(
     }
 
     const { searchParams } = new URL(request.url);
-    const filters: AnalyticsFilters = sanitizeAnalyticsFilters({
+    // Anonymous viewers get member-level filters: no reporter filter and no per-person grouping.
+    const filters: AnalyticsFilters = memberAnalyticsFilters(sanitizeAnalyticsFilters({
       ...share.filters,
       groupBy: searchParams.get('groupBy') || share.filters.groupBy,
       bucket: (searchParams.get('bucket') as AnalyticsFilters['bucket']) || share.filters.bucket,
@@ -100,7 +105,7 @@ export async function GET(
       metric: searchParams.get('metric') || share.filters.metric,
       limit: optionalParamNumber(searchParams, 'limit') ?? share.filters.limit,
       offset: optionalParamNumber(searchParams, 'offset') ?? share.filters.offset,
-    });
+    }));
 
     const meta = {
       label: share.label,

@@ -13,7 +13,7 @@ export type RateLimitRule = {
 /** Limits per action. Generous enough for real use, tight enough to stop scripted abuse. */
 export const RATE_LIMITS = {
   loginByIp: { limit: 30, windowSeconds: 15 * 60 },
-  loginByAccount: { limit: 10, windowSeconds: 15 * 60 },
+  loginByAccount: { limit: 50, windowSeconds: 60 * 60 },
   signup: { limit: 5, windowSeconds: 60 * 60 },
   betaSubscribe: { limit: 5, windowSeconds: 60 * 60 },
   upload: { limit: 30, windowSeconds: 10 * 60 },
@@ -23,6 +23,9 @@ export const RATE_LIMITS = {
   report: { limit: 20, windowSeconds: 60 * 60 },
   flag: { limit: 20, windowSeconds: 60 * 60 },
   payment: { limit: 10, windowSeconds: 60 * 60 },
+  analytics: { limit: 240, windowSeconds: 60 },
+  /** Attempts on one account from one IP; the per-account cap below is much higher so a stranger can't lock the owner out. */
+  loginByAccountIp: { limit: 10, windowSeconds: 15 * 60 },
 } satisfies Record<string, RateLimitRule>;
 
 export type RateLimitResult = { ok: boolean; remaining: number; retryAfterSeconds: number };

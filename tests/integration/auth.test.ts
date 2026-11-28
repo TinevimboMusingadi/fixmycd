@@ -110,17 +110,33 @@ describe('login', () => {
     expect((await call(login, { method: 'POST', body: { email: 42, password: [] } })).status).toBe(400);
   });
 
-  it('rate limits repeated attempts against one account', async () => {
+  it('rate limits repeated attempts against one account from one place', async () => {
     const user = await createUser();
     const statuses: number[] = [];
-    for (let i = 0; i < 12; i++) {
-      const res = await call(login, { method: 'POST', body: { email: user.email, password: `wrong-${i}` }, ip: `198.51.100.${i}` });
+    for (let i = 0; i < 10; i++) {
+      const res = await call(login, { method: 'POST', body: { email: user.email, password: `wrong-${i}` }, ip: '198.51.100.9' });
       statuses.push(res.status);
     }
-    expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
-    const blocked = await call(login, { method: 'POST', body: { email: user.email, password: user.password }, ip: '198.51.100.200' });
+    expect(statuses.every((s) => s === 401)).toBe(true);
+    const blocked = await call(login, { method: 'POST', body: { email: user.email, password: user.password }, ip: '198.51.100.9' });
     expect(blocked.status).toBe(429);
     expect(Number(blocked.headers.get('retry-after'))).toBeGreaterThan(0);
+  });
+
+  it("doesn't let a stranger lock the owner out, but caps distributed guessing", async () => {
+    const user = await createUser();
+    for (let i = 0; i < 12; i++) {
+      await call(login, { method: 'POST', body: { email: user.email, password: `wrong-${i}` }, ip: `198.51.100.${i}` });
+    }
+    // The owner, from their own address, still gets in.
+    const owner = await call(login, { method: 'POST', body: { email: user.email, password: user.password }, ip: '203.0.113.50' });
+    expect(owner.status).toBe(200);
+    // Many addresses together still hit the per-account ceiling.
+    let last = 0;
+    for (let i = 0; i < 50; i++) {
+      last = (await call(login, { method: 'POST', body: { email: user.email, password: 'nope' }, ip: `192.0.2.${i}` })).status;
+    }
+    expect(last).toBe(429);
   });
 
   it('rate limits one IP trying many accounts', async () => {

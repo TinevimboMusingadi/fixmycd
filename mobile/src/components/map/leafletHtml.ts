@@ -71,7 +71,8 @@ export function leafletHtml(opts: {
   function send(msg) {
     var s = JSON.stringify(msg);
     if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s);
-    else if (window.parent && window.parent !== window) window.parent.postMessage({ __fmdMap: true, payload: msg }, '*');
+    // srcdoc frames share the app's origin, so address the parent by it rather than '*'.
+    else if (window.parent && window.parent !== window) window.parent.postMessage({ __fmdMap: true, payload: msg }, window.origin && window.origin !== 'null' ? window.origin : '*');
   }
   if (init.dark) document.documentElement.className = 'dark';
   var map = L.map('map', {
@@ -124,6 +125,8 @@ export function leafletHtml(opts: {
   }
   window.__fmd = { run: run };
   window.addEventListener('message', function (e) {
+    // Commands only from the app: the native bridge (no source) or the hosting page.
+    if (e.source && e.source !== window.parent) return;
     var d = e.data;
     if (typeof d === 'string') { try { d = JSON.parse(d); } catch (_) { return; } }
     if (d && d.__fmdCmd) run(d.cmd);

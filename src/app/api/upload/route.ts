@@ -1,9 +1,9 @@
 import crypto from 'crypto';
 import { NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
-import { getSessionUser } from '../../../lib/auth';
+import { canContribute, getSessionUser, readOnlyAccount } from '../../../lib/auth';
 import { sniffMediaType } from '../../../lib/file-type';
-import { badRequest, clientIp, serverError } from '@/lib/http';
+import { badRequest, serverError } from '@/lib/http';
 import { MAX_DATA_URL_LENGTH } from '@/lib/media-url';
 import { enforceRateLimit } from '@/lib/rate-limit';
 
@@ -15,8 +15,9 @@ export async function POST(request: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!canContribute(user.role)) return readOnlyAccount();
 
-    const limited = await enforceRateLimit('upload', `${user.id}:${clientIp(request)}`);
+    const limited = await enforceRateLimit('upload', user.id);
     if (limited) return limited;
 
     let formData: FormData;

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { db } from '../../../../db';
 import { reports, users, upvotes, comments } from '../../../../db/schema';
 import { eq, and, sql } from 'drizzle-orm';
-import { getSessionUser } from '../../../../lib/auth';
+import { getSessionUser, isModerator } from '../../../../lib/auth';
 import { notFound, serverError } from '../../../../lib/http';
 
 export async function GET(
@@ -70,8 +70,11 @@ export async function GET(
       userHasUpvoted = uv.length > 0;
     }
 
+    // A review note is written to the submitter; only they and moderators may read it.
+    const canSeeNote = !!sessionUser && (sessionUser.id === report.submitterId || isModerator(sessionUser.role));
     return NextResponse.json({
       ...report,
+      reviewNote: canSeeNote ? report.reviewNote : null,
       createdAt: report.createdAt.toISOString(),
       userHasUpvoted,
     });

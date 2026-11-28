@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { PWARegister } from '@/components/PWARegister';
 import { ThemeController } from '@/components/ThemeToggle';
 import { themeInitScript } from '@/lib/theme';
@@ -35,17 +36,19 @@ export const viewport: Viewport = {
   themeColor: '#8b5cf6',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Set by src/proxy.ts; the enforced CSP only runs inline scripts that carry it.
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     // Light is the default; the inline script swaps in a saved choice (or the device
     // setting for "System") before the first paint, so the DOM wins over hydration.
     <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
         {children}

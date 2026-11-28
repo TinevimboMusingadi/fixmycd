@@ -10,6 +10,7 @@
  */
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import { refuseInProduction } from './scripts/production-guard';
 import bcrypt from 'bcryptjs';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from './src/db';
@@ -28,6 +29,7 @@ import {
 import { INFRASTRUCTURE_TAXONOMY, FAILURE_TYPES } from './src/lib/categories';
 
 dotenv.config();
+refuseInProduction('seed.ts');
 
 const DATASET = 'us-demo-v1';
 const PASSWORD = 'password123';

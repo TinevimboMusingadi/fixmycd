@@ -66,11 +66,22 @@ export function parseQuery<S extends z.ZodType>(
   return { ok: true, data: result.data };
 }
 
-/** Best-effort client IP (Vercel sets x-forwarded-for; the first hop is the client). */
+/**
+ * Client IP for rate limiting. Forwarding headers are only believed when a trusted proxy
+ * sets them: on Vercel (which overwrites them), or when TRUST_PROXY=1 says the app sits
+ * behind a proxy that does. Otherwise a client could send a fresh fake IP with every
+ * request and dodge every per-IP limit, so all untrusted traffic shares one bucket.
+ */
 export function clientIp(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  if (forwarded) return forwarded.split(',')[0].trim() || 'unknown';
-  return request.headers.get('x-real-ip')?.trim() || 'unknown';
+  const h = request.headers;
+  const first = (v: string | null) => v?.split(',')[0].trim() || '';
+  if (process.env.VERCEL) {
+    return first(h.get('x-vercel-forwarded-for')) || first(h.get('x-forwarded-for')) || 'unknown';
+  }
+  if (process.env.TRUST_PROXY === '1' || process.env.NODE_ENV === 'test') {
+    return first(h.get('x-forwarded-for')) || h.get('x-real-ip')?.trim() || 'unknown';
+  }
+  return 'direct';
 }
 
 /** Postgres unique_violation (23505), whether thrown directly or wrapped by Drizzle. */
