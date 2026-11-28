@@ -6,6 +6,8 @@ import { sniffMediaType } from '../../../lib/file-type';
 import { badRequest, serverError } from '@/lib/http';
 import { MAX_DATA_URL_LENGTH } from '@/lib/media-url';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { fastCheck, publicSummary, saveUploadCheck } from '@/lib/media-integrity';
+import { stripImageMetadata } from '@/lib/media-integrity/strip';
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
@@ -37,14 +39,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'File exceeds 10MB limit' }, { status: 413 });
     }
 
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const type = sniffMediaType(bytes);
+    const original = new Uint8Array(await file.arrayBuffer());
+    const type = sniffMediaType(original);
     if (!type) {
       return NextResponse.json(
         { error: 'Unsupported file type. Upload a photo (JPEG, PNG, WebP, GIF, HEIC), video (MP4, MOV, WebM) or audio (MP3, M4A, OGG, WAV).' },
         { status: 415 }
       );
     }
+
+    // Integrity checks read the original file (Content Credentials, metadata), then photos are
+    // stored without their metadata so GPS position, device and time aren't published.
+    const captureToken = formData.get('captureToken');
+    const { facts, scored } = await fastCheck({
+      bytes: original,
+      mime: type.mime,
+      kind: type.kind,
+      userId: user.id,
+      captureToken: typeof captureToken === 'string' ? captureToken : null,
+    });
+    let bytes: Uint8Array = original;
+    if (type.kind === 'image') {
+      try {
+        bytes = await stripImageMetadata(original, type.mime);
+      } catch (err) {
+        console.warn('upload: could not strip metadata, storing original', err instanceof Error ? err.message : err);
+      }
+    }
+    const integrity = (url: string) =>
+      type.kind === 'audio'
+        ? Promise.resolve(undefined)
+        : saveUploadCheck({ userId: user.id, url, kind: type.kind, mime: type.mime, facts, scored }).then((checkId) => ({ checkId, ...publicSummary(scored) }));
 
     // Server-chosen name: never reuse the client's file name in the storage path.
     const objectName = `reports/${user.id}/${Date.now()}-${crypto.randomBytes(8).toString('hex')}.${type.ext}`;
@@ -55,7 +80,7 @@ export async function POST(request: Request) {
         contentType: type.mime,
         token: process.env.BLOB_READ_WRITE_TOKEN,
       });
-      return NextResponse.json({ url: blob.url, kind: type.kind, contentType: type.mime });
+      return NextResponse.json({ url: blob.url, kind: type.kind, contentType: type.mime, integrity: await integrity(blob.url) });
     }
 
     const dataUrl = `data:${type.mime};base64,${Buffer.from(bytes).toString('base64')}`;
@@ -66,7 +91,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ url: dataUrl, fallback: true, kind: type.kind, contentType: type.mime });
+    return NextResponse.json({ url: dataUrl, fallback: true, kind: type.kind, contentType: type.mime, integrity: await integrity(dataUrl) });
   } catch (error: unknown) {
     return serverError(error, 'upload');
   }

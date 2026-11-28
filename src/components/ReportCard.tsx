@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { MediaLabel } from './MediaIntegrity';
 import Link from 'next/link';
 import type { ReportListItem } from '../lib/types';
 import { formatRelativeTime, handleFor } from '../lib/utils';
@@ -128,6 +129,7 @@ export default function ReportCard({
           )}
           {sev && <span className={`sev-chip ${sev.className}`}>{sev.label}</span>}
           {report.featured && <span className="featured-chip">Featured</span>}
+          <MediaLabel verdict={report.mediaVerdict} />
         </div>
 
         <Link href={`/dashboard/reports/${report.id}`} className="report-content-link">

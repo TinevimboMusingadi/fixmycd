@@ -8,6 +8,7 @@ import ShareSheet from '@/components/ShareSheet';
 import { EndorsementsSection } from '@/components/reports/EndorsementsSection';
 import { formatRelativeTime, handleFor } from '@/lib/utils';
 import { isAllowedMediaUrl } from '@/lib/media-url';
+import { MediaLabel } from '@/components/MediaIntegrity';
 import { loginUrlFor } from '@/lib/redirect';
 import { isModeratorRole, useCurrentUser } from '@/components/CurrentUserContext';
 
@@ -29,6 +30,7 @@ interface ReportDetail {
   videoUrl: string | null;
   audioUrl: string | null;
   aiSummary: string | null;
+  mediaVerdict?: string | null;
   createdAt: string;
   submitterId: string;
   userDisplayName: string | null;
@@ -227,6 +229,14 @@ export default function ReportDetailPage() {
           {report.aiSummary && (
             <p className="ai-summary">AI Summary: {report.aiSummary}</p>
           )}
+          {report.mediaVerdict === 'ai_confirmed' || report.mediaVerdict === 'suspected_ai' ? (
+            <p className="media-note">
+              <MediaLabel verdict={report.mediaVerdict} />{' '}
+              {report.mediaVerdict === 'ai_confirmed'
+                ? 'A reviewer or the file’s own Content Credentials confirm this media was made with AI. It may not show the real scene.'
+                : 'Automatic checks suggest this media may be AI-generated. A reviewer will check it.'}
+            </p>
+          ) : null}
 
           {report.imageUrl && isAllowedMediaUrl(report.imageUrl, 'image') && (
             <img src={report.imageUrl} alt={report.title} className="report-image" referrerPolicy="no-referrer" />

@@ -22,7 +22,7 @@ import { SEVERITY_LABELS, TAXONOMY } from '@/lib/categories';
 import { getCurrentCoords } from '@/lib/location';
 import { pickPhoto, type PickedPhoto } from '@/lib/media';
 import { haptic } from '@/lib/hooks';
-import type { GeocodeResult, UploadResponse } from '@/lib/types';
+import type { GeocodeResult, MediaIntegrity, UploadResponse } from '@/lib/types';
 import { brand, radius, severityMeta, tint, useTheme } from '@/theme';
 import { LeafletMap } from '@/components/map/LeafletMap';
 import type { LeafletMapHandle } from '@/components/map/types';
@@ -84,14 +84,16 @@ export default function ComposeScreen() {
   const back = () => (step === 0 ? close() : setStep((s) => s - 1));
 
   // --- Evidence --------------------------------------------------------------
+  const captureToken = useRef<string | null>(null);
   const startUpload = async (p: PickedPhoto) => {
     setUploading(true);
     setUploadError(null);
     setUploaded(null);
     try {
-      const res = await api.upload({ uri: p.uri, name: p.name, mimeType: p.mimeType });
+      const res = await api.upload({ uri: p.uri, name: p.name, mimeType: p.mimeType }, p.fromCamera ? captureToken.current : null);
       setUploaded(res);
-      haptic.success();
+      if (res.integrity && (res.integrity.verdict === 'ai_confirmed' || res.integrity.verdict === 'suspected_ai')) haptic.warning();
+      else haptic.success();
     } catch (e) {
       setUploadError((e as Error).message);
       haptic.error();
@@ -101,6 +103,11 @@ export default function ComposeScreen() {
   };
 
   const choose = async (source: 'camera' | 'library') => {
+    // Ask for an in-app capture token as the camera opens; uploads from the library don't get one.
+    captureToken.current = null;
+    if (source === 'camera') {
+      api.captureToken().then((t) => (captureToken.current = t.token)).catch(() => {});
+    }
     const r = await pickPhoto(source);
     if (!r.ok) {
       if (r.reason === 'denied') toast('Allow camera access in Settings to take a photo');
@@ -119,7 +126,7 @@ export default function ComposeScreen() {
     try {
       let imageUrl = uploaded?.url;
       if (photo && !imageUrl) {
-        const res = await api.upload({ uri: photo.uri, name: photo.name, mimeType: photo.mimeType });
+        const res = await api.upload({ uri: photo.uri, name: photo.name, mimeType: photo.mimeType }, photo.fromCamera ? captureToken.current : null);
         setUploaded(res);
         imageUrl = res.url;
       }
@@ -239,7 +246,7 @@ export default function ComposeScreen() {
               <SeverityPicker value={severity} onChange={setSeverity} />
             </>
           ) : step === 2 ? (
-            <EvidenceStep photo={photo} uploading={uploading} uploadError={uploadError} uploaded={!!uploaded} onChoose={choose} onRetry={() => photo && startUpload(photo)} onRemove={() => { setPhoto(null); setUploaded(null); setUploadError(null); }} />
+            <EvidenceStep photo={photo} uploading={uploading} uploadError={uploadError} uploaded={!!uploaded} integrity={uploaded?.integrity} onChoose={choose} onRetry={() => photo && startUpload(photo)} onRemove={() => { setPhoto(null); setUploaded(null); setUploadError(null); }} />
           ) : (
             <ReviewStep
               title={title}
@@ -455,6 +462,7 @@ function EvidenceStep({
   uploading,
   uploadError,
   uploaded,
+  integrity,
   onChoose,
   onRetry,
   onRemove,
@@ -463,6 +471,7 @@ function EvidenceStep({
   uploading: boolean;
   uploadError: string | null;
   uploaded: boolean;
+  integrity?: MediaIntegrity;
   onChoose: (s: 'camera' | 'library') => void;
   onRetry: () => void;
   onRemove: () => void;
@@ -496,6 +505,25 @@ function EvidenceStep({
             <Icon name="close" size={18} color="#fff" />
           </Pressable>
         </View>
+        {integrity && (integrity.verdict === 'ai_confirmed' || integrity.verdict === 'suspected_ai') ? (
+          <View
+            accessibilityRole="alert"
+            style={[styles.aiWarning, { borderColor: integrity.verdict === 'ai_confirmed' ? brand.red : brand.yellow, backgroundColor: tint(integrity.verdict === 'ai_confirmed' ? brand.red : brand.yellow, 0.1) }]}
+          >
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <Icon name="warning" size={18} color={integrity.verdict === 'ai_confirmed' ? brand.red : brand.yellow} />
+              <T v="bodyStrong" style={{ flex: 1 }}>
+                {integrity.verdict === 'ai_confirmed' ? 'This photo looks AI-generated' : 'This photo may be AI-generated'}
+              </T>
+            </View>
+            {integrity.reasons.map((r) => (
+              <T key={r} v="small" color="secondary">• {r}</T>
+            ))}
+            <T v="small" color="secondary">
+              FixMyDistrict is for real problems you’ve seen. You can still post, but it will be labelled and checked by a reviewer. Taking the photo with the camera here helps.
+            </T>
+          </View>
+        ) : null}
         {uploadError ? (
           <View style={{ gap: 8 }}>
             <T v="small" color="danger">{uploadError}</T>
@@ -609,6 +637,7 @@ function ReviewRow({ icon, label, value, onEdit }: { icon: React.ComponentProps<
 }
 
 const styles = StyleSheet.create({
+  aiWarning: { gap: 6, padding: 12, borderRadius: radius.md, borderWidth: 1 },
   topBar: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6 },
   progress: { flexDirection: 'row', gap: 6, paddingHorizontal: 16, paddingBottom: 10 },
   bar: { height: 4, borderRadius: 2 },

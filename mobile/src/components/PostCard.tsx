@@ -60,6 +60,11 @@ function PostCardInner({ post, onUpvote }: Props) {
           <SeverityChip severity={post.severity} />
           <CategoryChip category={post.category} subcategory={post.subcategory} />
           {post.featured ? <Chip label="Featured" color={brand.purpleStart} icon="star" /> : null}
+          {post.mediaVerdict === 'ai_confirmed' ? (
+            <Chip label="AI-generated media" color={brand.red} icon="warning" />
+          ) : post.mediaVerdict === 'suspected_ai' ? (
+            <Chip label="Possibly AI" color={brand.yellow} icon="warning" />
+          ) : null}
         </View>
 
         <Text style={[t.bodyStrong, { color: colors.text, marginTop: 6 }]}>{post.title}</Text>

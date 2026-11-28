@@ -25,6 +25,7 @@
     "test:seed:record": "tsx tests/seed/record-snapshot.ts"
   },
   "dependencies": {
+    "@contentauth/c2pa-node": "^0.12.2",
     "@vercel/blob": "^2.8.0",
     "bcryptjs": "^3.0.3",
     "dotenv": "^16.6.1",
@@ -40,6 +41,7 @@
     "react-leaflet": "^5.0.0",
     "recharts": "^3.9.2",
     "resend": "^6.28.1",
+    "sharp": "^0.35.5",
     "zod": "^4.6.6"
   },
   "devDependencies": {

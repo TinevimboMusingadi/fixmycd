@@ -27,6 +27,8 @@ export const users = pgTable('users', {
   verificationMethod: text('verification_method'),
   // Version of the Code of Ethics the user agreed to at signup.
   ethicsAcceptedVersion: integer('ethics_accepted_version'),
+  // Posts a reviewer confirmed used AI-generated media.
+  aiMediaStrikes: integer('ai_media_strikes').notNull().default(0),
 });
 
 // Demo checkout records ($1 identity check and donations). No real money moves;
@@ -100,6 +102,8 @@ export const reports = pgTable('reports', {
   environmentalImpact: boolean('environmental_impact').notNull().default(false),
   tags: text('tags'),
   aiSummary: text('ai_summary'),
+  // Worst media integrity verdict of the post's photo/video (see src/lib/media-integrity).
+  mediaVerdict: text('media_verdict'),
   reviewNote: text('review_note'),
   isHidden: boolean('is_hidden').notNull().default(false),
   featured: boolean('featured').notNull().default(false),
@@ -255,6 +259,31 @@ export const notifications = pgTable('notifications', {
   metadataJson: text('metadata_json'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// One row per uploaded photo/video: what the integrity checks found and what a reviewer decided.
+export const mediaChecks = pgTable('media_checks', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  reportId: text('report_id').references(() => reports.id, { onDelete: 'cascade' }),
+  mediaKind: text('media_kind').notNull(),
+  mime: text('mime').notNull(),
+  // sha256 of the stored URL, to link the check to the post that uses it.
+  urlHash: text('url_hash').notNull(),
+  verdict: text('verdict').notNull(),
+  score: integer('score').notNull(),
+  // Evidence (signals + facts). Facts include the original GPS/time, so this is never public.
+  signalsJson: text('signals_json').notNull(),
+  detectors: text('detectors').notNull().default('fast'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  checkedAt: timestamp('checked_at', { withTimezone: true }).notNull().defaultNow(),
+  reviewDecision: text('review_decision'),
+  reviewedBy: text('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+}, (table) => ({
+  urlIdx: index('media_checks_url_idx').on(table.urlHash),
+  reportIdx: index('media_checks_report_idx').on(table.reportId),
+  verdictIdx: index('media_checks_verdict_idx').on(table.verdict, table.reviewedAt),
+}));
 
 export const flags = pgTable('flags', {
   id: text('id').primaryKey(),

@@ -31,6 +31,7 @@ export interface Post {
   videoUrl: string | null;
   audioUrl: string | null;
   aiSummary: string | null;
+  mediaVerdict?: string | null;
   featured: boolean;
   createdAt: string;
   submitterId: string;
@@ -105,7 +106,16 @@ export interface UploadResponse {
   kind: 'image' | 'video' | 'audio';
   contentType: string;
   fallback?: boolean;
+  /** Real-time AI-media check of the upload (photos/videos). */
+  integrity?: MediaIntegrity;
 }
+
+export type MediaIntegrity = {
+  checkId?: string;
+  verdict: 'ai_confirmed' | 'suspected_ai' | 'unverified' | 'likely_authentic';
+  score?: number;
+  reasons: string[];
+};
 
 export interface GeocodeResult {
   addressLine: string;

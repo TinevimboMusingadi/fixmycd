@@ -434,6 +434,32 @@ export async function runMigrations(client: postgres.Sql): Promise<void> {
       );
     `;
 
+    // Media integrity (AI-generated photo/video detection)
+    await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "ai_media_strikes" integer DEFAULT 0 NOT NULL;`;
+    await sql`ALTER TABLE "reports" ADD COLUMN IF NOT EXISTS "media_verdict" text;`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS "media_checks" (
+        "id" text PRIMARY KEY NOT NULL,
+        "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+        "report_id" text REFERENCES "reports"("id") ON DELETE CASCADE,
+        "media_kind" text NOT NULL,
+        "mime" text NOT NULL,
+        "url_hash" text NOT NULL,
+        "verdict" text NOT NULL,
+        "score" integer NOT NULL,
+        "signals_json" text NOT NULL,
+        "detectors" text DEFAULT 'fast' NOT NULL,
+        "created_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        "checked_at" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        "review_decision" text,
+        "reviewed_by" text REFERENCES "users"("id") ON DELETE SET NULL,
+        "reviewed_at" timestamp with time zone
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS "media_checks_url_idx" ON "media_checks" ("url_hash");`;
+    await sql`CREATE INDEX IF NOT EXISTS "media_checks_report_idx" ON "media_checks" ("report_id");`;
+    await sql`CREATE INDEX IF NOT EXISTS "media_checks_verdict_idx" ON "media_checks" ("verdict", "reviewed_at");`;
+
     // Rate limiting counters
     await sql`
       CREATE TABLE IF NOT EXISTS "rate_limits" (

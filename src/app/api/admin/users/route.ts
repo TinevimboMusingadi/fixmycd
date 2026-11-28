@@ -21,6 +21,7 @@ const userListColumns = {
   disabledAt: users.disabledAt,
   isSynthetic: users.isSynthetic,
   verificationMethod: users.verificationMethod,
+  aiMediaStrikes: users.aiMediaStrikes,
   createdAt: users.createdAt,
 };
 

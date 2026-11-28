@@ -10,6 +10,8 @@ import { enrichReportLocation } from '@/lib/geo/enrich';
 import { and, eq } from 'drizzle-orm';
 import { badRequest, parseJsonBody, parseQuery, serverError } from '@/lib/http';
 import { enforceRateLimit } from '@/lib/rate-limit';
+import { attachChecksToReport, runDeepChecks } from '@/lib/media-integrity';
+import { runAfterResponse } from '@/lib/notify';
 import { reportCreateSchema, reportFeedQuery } from '@/lib/validation';
 
 export async function GET(request: Request) {
@@ -179,7 +181,23 @@ export async function POST(request: Request) {
       console.error('Geography enrichment failed:', err);
     }
 
-    return NextResponse.json(newReport[0], { status: 201 });
+    // Link the upload checks to this post, set its media label, and queue deeper checks.
+    let mediaVerdict: string | null = null;
+    try {
+      mediaVerdict = await attachChecksToReport({
+        reportId,
+        userId: sessionUser.id,
+        urls: [imageUrl, videoUrl],
+        lat: latitude,
+        lng: longitude,
+        occurredAt: occurredAt ? new Date(occurredAt) : now,
+      });
+      if (mediaVerdict) runAfterResponse('media-deep-check', () => runDeepChecks(reportId, { imageUrl, videoUrl }));
+    } catch (err) {
+      console.error('Media integrity linking failed:', err);
+    }
+
+    return NextResponse.json({ ...newReport[0], mediaVerdict }, { status: 201 });
   } catch (error: unknown) {
     return serverError(error, 'reports POST');
   }

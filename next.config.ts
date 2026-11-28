@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
     ],
   },
   poweredByHeader: false,
+  // Native modules (Content Credentials reader, image processing) are loaded with Node's require.
+  serverExternalPackages: ['@contentauth/c2pa-node', 'sharp'],
   env: {
     // Versions the service worker cache so each deploy starts clean.
     NEXT_PUBLIC_APP_VERSION:

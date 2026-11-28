@@ -147,6 +147,11 @@ export default function PostScreen() {
             <SeverityChip severity={p.severity} />
             <CategoryChip category={p.category} subcategory={p.subcategory} />
             {p.featured ? <Chip label="Featured" color={brand.purpleStart} icon="star" /> : null}
+            {p.mediaVerdict === 'ai_confirmed' ? (
+              <Chip label="AI-generated media" color={brand.red} icon="warning" />
+            ) : p.mediaVerdict === 'suspected_ai' ? (
+              <Chip label="Possibly AI-generated" color={brand.yellow} icon="warning" />
+            ) : null}
           </View>
 
           <T v="title" style={{ marginTop: 10, fontSize: 21, lineHeight: 26 }}>{p.title}</T>
