@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { API_BASE_URL } from './config';
+import { currentSessionToken, endSession, loadSessionToken, setSessionToken } from './session';
 import type {
   AnalyticsSummary,
   CardDetails,
@@ -17,13 +18,10 @@ import type {
 } from './types';
 
 /**
- * Auth: the API keeps the session in an httpOnly `fmd_session` cookie set by
- * POST /api/auth/login (and /api/verify). React Native's networking layer
- * (NSHTTPCookieStorage on iOS, the OkHttp cookie jar on Android) stores it and
- * sends it back on every request to the same host, so we only need
- * `credentials: 'include'`. Native requests carry no Origin/Sec-Fetch-Site
- * header, which the API's CSRF check (src/lib/csrf.ts) treats as a non-browser
- * client and lets through to normal authentication.
+ * Auth: sign-in endpoints called with `X-Client: mobile-app` return a session token instead of
+ * setting a cookie. It is kept in secure storage (./session.ts) and sent as
+ * `Authorization: Bearer …`; cookies are never used (`credentials: 'omit'`), so nothing the
+ * OS cookie jar holds can be replayed. Any 401 ends the session on this device.
  */
 
 export class ApiError extends Error {
@@ -53,7 +51,9 @@ async function request<T>(
   path: string,
   opts: { query?: Query; body?: unknown; form?: FormData; signal?: AbortSignal } = {}
 ): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+  const headers: Record<string, string> = { Accept: 'application/json', 'X-Client': 'mobile-app' };
+  const token = currentSessionToken() ?? (await loadSessionToken());
+  if (token) headers.Authorization = `Bearer ${token}`;
   let body: BodyInit | undefined;
   if (opts.form) {
     body = opts.form as unknown as BodyInit;
@@ -68,7 +68,7 @@ async function request<T>(
       method,
       headers,
       body,
-      credentials: 'include',
+      credentials: 'omit',
       signal: opts.signal,
     });
   } catch (e) {
@@ -86,6 +86,10 @@ async function request<T>(
     }
   }
 
+  if (res.status === 401 && token) {
+    // The server no longer accepts this session (expired, signed out elsewhere, account disabled).
+    await endSession();
+  }
   if (!res.ok) {
     const d = (data ?? {}) as { error?: string; fields?: Record<string, string> };
     let message = d.error || `Request failed (${res.status})`;
@@ -150,13 +154,38 @@ export const api = {
       throw e;
     }
   },
-  login: (email: string, password: string) =>
-    request<{ success: true; user: SessionUser }>('POST', '/api/auth/login', { body: { email, password } }),
+  login: async (email: string, password: string) => {
+    const r = await request<{ success: true; user: SessionUser; token?: string }>('POST', '/api/auth/login', { body: { email, password } });
+    if (r.token) await setSessionToken(r.token);
+    return r;
+  },
+  /** Exchange a Clerk (Google/LinkedIn/Facebook) sign-in for our session; see the server's /api/auth/clerk. */
+  clerkExchange: async (body: { token: string; acceptEthics?: boolean; displayName?: string }) => {
+    const r = await request<
+      | { status: 'signed_in'; user: SessionUser; token?: string }
+      | { status: 'needs_ethics' }
+      | { status: 'needs_phone' }
+      | { status: 'pending'; canVerifyByCard: boolean }
+    >('POST', '/api/auth/clerk', { body });
+    if (r.status === 'signed_in' && r.token) await setSessionToken(r.token);
+    return r;
+  },
   signup: (body: { email: string; password: string; displayName: string; acceptEthics: true }) =>
     request<{ success: true; pending: true; message: string }>('POST', '/api/auth/signup', { body }),
-  logout: () => request<{ success: true }>('POST', '/api/auth/logout'),
-  verify: (body: { email: string; password: string; card: CardDetails }) =>
-    request<{ success: true; verified: true; demo: true }>('POST', '/api/verify', { body }),
+  logout: async () => {
+    try {
+      return await request<{ success: true }>('POST', '/api/auth/logout');
+    } finally {
+      await setSessionToken(null);
+    }
+  },
+  verify: async (body: { email: string; password: string; card: CardDetails } | { clerkToken: string; card: CardDetails }) => {
+    const r = await request<{ success: true; verified: true; demo: true; token?: string }>('POST', '/api/verify', { body });
+    if (r.token) await setSessionToken(r.token);
+    return r;
+  },
+  devices: () => request<{ id: string; client: string; method: string | null; device: string | null; lastSeenAt: string; current: boolean }[]>('GET', '/api/auth/sessions'),
+  signOutDevice: (body: { id: string } | { others: true }) => request<{ removed: number }>('DELETE', '/api/auth/sessions', { body }),
 
   // --- People & notifications -----------------------------------------------
   user: (id: string) => request<UserProfile>('GET', `/api/users/${encodeURIComponent(id)}`),

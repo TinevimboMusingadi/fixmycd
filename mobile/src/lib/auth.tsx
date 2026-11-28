@@ -3,6 +3,7 @@ import { Alert, Platform } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { api } from './api';
+import { onSessionEnded } from './session';
 import type { SessionUser } from './types';
 
 interface AuthContextValue {
@@ -25,6 +26,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const qc = useQueryClient();
   const me = useQuery({ queryKey: ME_KEY, queryFn: api.me, staleTime: 5 * 60_000, retry: 1 });
   const user = me.data ?? null;
+
+  // When the server ends the session (expired, revoked, signed out elsewhere) show the app as signed out.
+  React.useEffect(
+    () =>
+      onSessionEnded(() => {
+        qc.setQueryData(ME_KEY, null);
+        qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
+      }),
+    [qc]
+  );
 
   const refresh = useCallback(async () => {
     await qc.invalidateQueries({ queryKey: ME_KEY });

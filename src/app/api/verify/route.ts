@@ -4,7 +4,8 @@ import bcrypt from 'bcryptjs';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { demoPayments, users } from '@/db/schema';
-import { createSession } from '@/lib/auth';
+import { createSession, isMobileClient } from '@/lib/auth';
+import { verifyClerkUser } from '@/lib/clerk';
 import { badRequest, clientIp, parseJsonBody, serverError } from '@/lib/http';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { dummyPasswordHash, enforceAccountLimits } from '@/lib/password';
@@ -28,18 +29,25 @@ export async function POST(request: Request) {
 
     const parsed = await parseJsonBody(request, verifyPaymentSchema);
     if (!parsed.ok) return parsed.response;
-    const { email, password, card } = parsed.data;
+    const { card } = parsed.data;
+    const columns = { id: users.id, passwordHash: users.passwordHash, status: users.status, disabledAt: users.disabledAt, phoneVerifiedAt: users.phoneVerifiedAt };
 
-    const limitedByAccount = await enforceAccountLimits(email, clientIp(request));
-    if (limitedByAccount) return limitedByAccount;
-
-    const [user] = await db
-      .select({ id: users.id, passwordHash: users.passwordHash, status: users.status, disabledAt: users.disabledAt })
-      .from(users)
-      .where(sql`lower(${users.email}) = ${email}`)
-      .limit(1);
-    const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? dummyPasswordHash());
-    if (!user || !user.passwordHash || !passwordOk) return invalidCredentials();
+    let user: { id: string; passwordHash: string | null; status: string; disabledAt: Date | null; phoneVerifiedAt: Date | null } | undefined;
+    if ('clerkToken' in parsed.data) {
+      const identity = await verifyClerkUser(parsed.data.clerkToken);
+      if (!identity) return NextResponse.json({ error: 'Sign-in could not be verified. Please try again.' }, { status: 401 });
+      [user] = await db.select(columns).from(users).where(eq(users.clerkUserId, identity.clerkUserId)).limit(1);
+      if (!user) return NextResponse.json({ error: 'Finish signing up first.' }, { status: 404 });
+      // Social sign-ups confirm a phone number before they can activate.
+      if (!user.phoneVerifiedAt) return NextResponse.json({ error: 'Verify your phone number first.', code: 'needs_phone' }, { status: 403 });
+    } else {
+      const { email, password } = parsed.data;
+      const limitedByAccount = await enforceAccountLimits(email, clientIp(request));
+      if (limitedByAccount) return limitedByAccount;
+      [user] = await db.select(columns).from(users).where(sql`lower(${users.email}) = ${email}`).limit(1);
+      const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? dummyPasswordHash());
+      if (!user || !user.passwordHash || !passwordOk) return invalidCredentials();
+    }
 
     if (user.disabledAt) return NextResponse.json({ error: 'Account has been disabled' }, { status: 403 });
     if (user.status === 'approved') {
@@ -72,8 +80,14 @@ export async function POST(request: Request) {
     });
     if (!activated) return NextResponse.json({ error: 'Your account is already active. Just log in.' }, { status: 409 });
 
-    await createSession(user.id);
-    return NextResponse.json({ success: true, verified: true, demo: true });
+    const client = isMobileClient(request) ? 'mobile' : 'web';
+    const session = await createSession(user.id, { client, method: 'card_demo', userAgent: request.headers.get('user-agent') });
+    return NextResponse.json({
+      success: true,
+      verified: true,
+      demo: true,
+      ...(client === 'mobile' ? { token: session.token, expiresAt: session.expiresAt.toISOString() } : {}),
+    });
   } catch (error: unknown) {
     return serverError(error, 'verify');
   }

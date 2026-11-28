@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { SocialSignIn } from '@/components/SocialSignIn';
 import { useRouter } from 'next/navigation';
 import { DemoCheckout, postPayment } from '@/components/DemoCheckout';
 import { WhyOneDollar } from '@/components/WhyOneDollar';
@@ -91,6 +92,7 @@ export default function SignupPage() {
 
             {error && <div className="auth-error">{error}</div>}
 
+            <SocialSignIn mode="signup" />
             <form onSubmit={handleSignup} noValidate>
               <div className="form-group">
                 <label htmlFor="displayName">Full Name</label>

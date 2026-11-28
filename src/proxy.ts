@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { isCrossSiteMutation } from './lib/csrf';
-import { buildCsp, newNonce } from './lib/csp';
+import { buildCsp, clerkCspHosts, newNonce } from './lib/csp';
+import { clerkFrontendApiHost } from './lib/clerk';
 
 // Must match SESSION_COOKIE in src/lib/auth.ts. The proxy only uses it to
 // decide whether to redirect to /login; authorization happens server-side.
@@ -38,7 +39,12 @@ export function proxy(request: NextRequest) {
   // Pages: enforced CSP with a per-request nonce. Next reads the nonce from the request's
   // CSP header and stamps it on its scripts; the root layout uses x-nonce for its own.
   const nonce = newNonce();
-  const csp = buildCsp(nonce, { dev: process.env.NODE_ENV === 'development' });
+  // Clerk's widget only loads on the sign-in pages, so only they allow its hosts.
+  const clerkPage = path === '/login' || path === '/signup' || path.startsWith('/auth/');
+  const csp = buildCsp(nonce, {
+    dev: process.env.NODE_ENV === 'development',
+    ...(clerkPage ? clerkCspHosts(clerkFrontendApiHost()) : {}),
+  });
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', csp);

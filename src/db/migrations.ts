@@ -460,6 +460,15 @@ export async function runMigrations(client: postgres.Sql): Promise<void> {
     await sql`CREATE INDEX IF NOT EXISTS "media_checks_report_idx" ON "media_checks" ("report_id");`;
     await sql`CREATE INDEX IF NOT EXISTS "media_checks_verdict_idx" ON "media_checks" ("verdict", "reviewed_at");`;
 
+    // Clerk sign-in and session details
+    await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "clerk_user_id" text;`;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS "users_clerk_user_id_key" ON "users" ("clerk_user_id");`;
+    await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "auth_provider" text;`;
+    await sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "phone_verified_at" timestamp with time zone;`;
+    await sql`ALTER TABLE "sessions" ADD COLUMN IF NOT EXISTS "client" text DEFAULT 'web' NOT NULL;`;
+    await sql`ALTER TABLE "sessions" ADD COLUMN IF NOT EXISTS "auth_method" text;`;
+    await sql`ALTER TABLE "sessions" ADD COLUMN IF NOT EXISTS "user_agent" text;`;
+
     // Rate limiting counters
     await sql`
       CREATE TABLE IF NOT EXISTS "rate_limits" (

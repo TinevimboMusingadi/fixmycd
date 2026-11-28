@@ -29,6 +29,10 @@ export const users = pgTable('users', {
   ethicsAcceptedVersion: integer('ethics_accepted_version'),
   // Posts a reviewer confirmed used AI-generated media.
   aiMediaStrikes: integer('ai_media_strikes').notNull().default(0),
+  // Sign-in through Clerk (Google, LinkedIn, Facebook, email code): the Clerk user it is linked to.
+  clerkUserId: text('clerk_user_id').unique(),
+  authProvider: text('auth_provider'),
+  phoneVerifiedAt: timestamp('phone_verified_at', { withTimezone: true }),
 });
 
 // Demo checkout records ($1 identity check and donations). No real money moves;
@@ -376,6 +380,12 @@ export const sessions = pgTable('sessions', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  // 'web' (cookie) or 'mobile' (bearer token in the app's secure storage).
+  client: text('client').notNull().default('web'),
+  // How the person signed in: 'password', 'card_demo', 'clerk:google', 'clerk:linkedin_oidc', 'clerk:facebook'…
+  authMethod: text('auth_method'),
+  // Short device description for the "Signed-in devices" list.
+  userAgent: text('user_agent'),
 }, (table) => ({
   userIdx: index('sessions_user_idx').on(table.userId),
   expiresIdx: index('sessions_expires_idx').on(table.expiresAt),

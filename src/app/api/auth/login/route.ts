@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
-import { createSession } from '@/lib/auth';
+import { createSession, isMobileClient } from '@/lib/auth';
 import { clientIp, parseJsonBody, serverError } from '@/lib/http';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { dummyPasswordHash, enforceAccountLimits } from '@/lib/password';
@@ -62,11 +62,14 @@ export async function POST(request: Request) {
       );
     }
 
-    await createSession(user.id);
+    // The phone app gets a bearer token (kept in secure storage); browsers get the httpOnly cookie.
+    const client = isMobileClient(request) ? 'mobile' : 'web';
+    const session = await createSession(user.id, { client, method: 'password', userAgent: request.headers.get('user-agent') });
 
     return NextResponse.json({
       success: true,
       user: { id: user.id, email: user.email, displayName: user.displayName, role: user.role },
+      ...(client === 'mobile' ? { token: session.token, expiresAt: session.expiresAt.toISOString() } : {}),
     });
   } catch (error: unknown) {
     return serverError(error, 'auth/login');

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { SocialSignIn } from '@/components/SocialSignIn';
 import { safeRedirect } from '@/lib/redirect';
 import { useHydrated } from '@/lib/useHydrated';
 
@@ -68,6 +69,7 @@ export default function LoginPage() {
           </div>
         )}
 
+        <SocialSignIn mode="login" />
         <form onSubmit={handleLogin}>
           <div className="form-group">
             <label htmlFor="email">Email Address</label>
